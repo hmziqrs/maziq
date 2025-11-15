@@ -39,7 +39,7 @@ _Phase 2 – Software manager engine_
 - [x] Implement status detection (installed / outdated / not installed) using the standardized version detection rules and Homebrew metadata.
 - [x] Implement install/update/uninstall commands for individual software and for all items in a template.
 - [x] Implement a `versions` command (or similar) that prints all detected software versions in one run.
-- [ ] Support multiple install/update sources per software entry (e.g., Homebrew cask, direct download script, manual instructions) with automatic fallback and logging of the source used.
+- [x] Support multiple install/update sources per software entry (e.g., Homebrew cask, direct download script, manual instructions) with automatic fallback and logging of the source used.
 
 _Phase 3 – GUI apps & Homebrew_
 - [x] Implement respectful installation of GUI apps via Homebrew casks (e.g. `brew install --cask android-studio`).
@@ -58,4 +58,4 @@ _Phase 5 – Safety, testing & DX_
 - [ ] Add logging and a concise summary report per run (per software success/failure).
 - [ ] Implement a small test harness to run per-software adapter tests and dependency-chain tests.
 - [ ] Optionally add a `--json` output mode so other tools (including Codex) can consume results programmatically.
-- [ ] Persist installed software history (software id, detected version, timestamp, source used) so MazIQ can answer “what did we install and how” even when probes fail or multiple sources exist.
+- [x] Persist installed software history (software id, detected version, timestamp, source used) so MazIQ can answer “what did we install and how” even when probes fail or multiple sources exist.

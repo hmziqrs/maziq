@@ -19,6 +19,7 @@ use ratatui::{Terminal, backend::CrosstermBackend};
 mod app;
 mod catalog;
 mod cli;
+mod history;
 mod manager;
 mod templates;
 mod tui;
