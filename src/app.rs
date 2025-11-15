@@ -847,7 +847,14 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                     let request_id = request.id;
                     let request_label = request.label.clone();
                     let mut callback = |event: &ExecutionEvent| {
-                        send_event(&event_tx_clone, request_id, &request_label, vec![format!("  {}", event.summary())], None);
+                        let mut messages = vec![format!("  {}", event.summary())];
+                        if let Some(output) = &event.output {
+                            // Split output into lines and indent each
+                            for line in output.lines() {
+                                messages.push(format!("    {}", line));
+                            }
+                        }
+                        send_event(&event_tx_clone, request_id, &request_label, messages, None);
                     };
 
                     // Step 1: Install
