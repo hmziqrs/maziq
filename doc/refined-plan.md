@@ -47,8 +47,8 @@ _Phase 3 – GUI apps & Homebrew_
 - [x] Ensure GUI adapters only manage application binaries (no user project/settings changes).
 
 _Phase 4 – Onboarding & configurator_
-- [ ] Implement a template-driven `onboard fresh` workflow that installs all software in the selected template in dependency order.
-- [ ] Implement an `onboard update` workflow that updates all software defined in the template.
+- [x] Implement a template-driven `onboard fresh` workflow that installs all software in the selected template in dependency order.
+- [x] Implement an `onboard update` workflow that updates all software defined in the template.
 - [ ] Implement the configurator to list profiles and apply Git/SSH/GPG/email/username/default branch/pull mode settings.
 - [ ] Add backup and dry-run support for configurator changes, mark as experimental, and gate it behind an explicit `--experimental-config` (or similar) flag.
 
