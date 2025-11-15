@@ -42,6 +42,29 @@ pub enum SoftwareId {
     OpencodeCli,
 }
 
+pub struct SoftwareCategory {
+    pub name: &'static str,
+    pub entries: &'static [SoftwareId],
+}
+
+#[derive(Clone, Copy)]
+pub struct SoftwareHandle {
+    pub category: &'static str,
+    pub id: SoftwareId,
+}
+
+pub fn flattened_handles() -> Vec<SoftwareHandle> {
+    CATEGORIES
+        .iter()
+        .flat_map(|category| {
+            category.entries.iter().map(move |id| SoftwareHandle {
+                category: category.name,
+                id: *id,
+            })
+        })
+        .collect()
+}
+
 pub const ALL_SOFTWARE: &[SoftwareId] = &[
     SoftwareId::Homebrew,
     SoftwareId::XcodeCommandLineTools,
@@ -761,3 +784,76 @@ pub fn find_by_key(key: &str) -> Option<SoftwareEntry> {
 pub fn entry(id: SoftwareId) -> SoftwareEntry {
     SoftwareEntry::from_id(id)
 }
+
+pub const CATEGORIES: &[SoftwareCategory] = &[
+    SoftwareCategory {
+        name: "System Essentials",
+        entries: &[SoftwareId::Homebrew, SoftwareId::XcodeCommandLineTools],
+    },
+    SoftwareCategory {
+        name: "Browsers",
+        entries: &[SoftwareId::Brave, SoftwareId::Firefox, SoftwareId::Chrome],
+    },
+    SoftwareCategory {
+        name: "Editors & IDEs",
+        entries: &[
+            SoftwareId::JetBrainsToolbox,
+            SoftwareId::Cursor,
+            SoftwareId::Windsurf,
+            SoftwareId::VisualStudioCode,
+            SoftwareId::ZedStable,
+            SoftwareId::ZedPreview,
+        ],
+    },
+    SoftwareCategory {
+        name: "Desktop Utilities",
+        entries: &[SoftwareId::Raycast, SoftwareId::DockerDesktop],
+    },
+    SoftwareCategory {
+        name: "API & Testing",
+        entries: &[SoftwareId::Postman, SoftwareId::Yaak, SoftwareId::Bruno],
+    },
+    SoftwareCategory {
+        name: "Rust Stack",
+        entries: &[
+            SoftwareId::Rustup,
+            SoftwareId::RustStable,
+            SoftwareId::RustNightly,
+            SoftwareId::CargoJust,
+            SoftwareId::CargoBinstall,
+            SoftwareId::CargoWatch,
+            SoftwareId::SimpleHttpServer,
+            SoftwareId::DioxusCli,
+            SoftwareId::YewCli,
+            SoftwareId::LeptosCli,
+        ],
+    },
+    SoftwareCategory {
+        name: "JavaScript & Node",
+        entries: &[SoftwareId::Nvm, SoftwareId::Bun, SoftwareId::ElectronForge],
+    },
+    SoftwareCategory {
+        name: "Mobile / Cross-Platform",
+        entries: &[
+            SoftwareId::Flutter,
+            SoftwareId::AndroidStudio,
+            SoftwareId::ReactNativeCli,
+        ],
+    },
+    SoftwareCategory {
+        name: "AI Assistant CLIs",
+        entries: &[
+            SoftwareId::CodexCli,
+            SoftwareId::ClaudeCli,
+            SoftwareId::ClaudeMultiCli,
+            SoftwareId::KimiCli,
+            SoftwareId::GeminiCli,
+            SoftwareId::QwenCli,
+            SoftwareId::OpencodeCli,
+        ],
+    },
+    SoftwareCategory {
+        name: "Languages",
+        entries: &[SoftwareId::Go],
+    },
+];
