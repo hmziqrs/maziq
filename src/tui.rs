@@ -56,9 +56,15 @@ fn draw_menu(frame: &mut Frame<'_>, app: &mut App) {
         );
     frame.render_stateful_widget(list, chunks[0], app.menu_state_mut());
 
-    let instructions = Paragraph::new(
-        "Enter or 1-5 selects • ↑/↓ or j/k navigate • r refresh statuses • Esc/m stay here • q quit",
-    )
+    let dry_run_notice = if crate::options::global_dry_run() {
+        " (dry-run: actions previewed only)"
+    } else {
+        ""
+    };
+    let instructions = Paragraph::new(format!(
+        "Enter or 1-5 selects • ↑/↓ or j/k navigate • r refresh statuses • Esc/m stay here • q quit{}",
+        dry_run_notice
+    ))
     .block(
         Block::default()
             .title("Menu controls")

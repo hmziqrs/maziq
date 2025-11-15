@@ -22,12 +22,17 @@ mod cli;
 mod configurator;
 mod history;
 mod manager;
+mod options;
 mod templates;
 mod tui;
 
 fn main() -> std::process::ExitCode {
     // Parse CLI first; if no subcommand, fall back to the interactive TUI.
     let cli_args = cli::Cli::parse();
+    if cli_args.dry_run {
+        options::set_global_dry_run(true);
+    }
+
     if let Some(command) = cli_args.command {
         return match cli::run(command) {
             Ok(_) => std::process::ExitCode::SUCCESS,

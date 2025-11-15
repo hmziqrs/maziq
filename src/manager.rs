@@ -256,11 +256,18 @@ impl Default for SoftwareManager {
 
 impl SoftwareManager {
     pub fn new() -> Self {
-        Self::default()
+        Self::default().with_global()
     }
 
     pub fn with_flags(dry_run: bool, force: bool) -> Self {
-        Self { dry_run, force }
+        Self { dry_run, force }.with_global()
+    }
+
+    fn with_global(mut self) -> Self {
+        if crate::options::global_dry_run() {
+            self.dry_run = true;
+        }
+        self
     }
 
     pub fn install(&self, id: SoftwareId) -> Result<Vec<ExecutionEvent>, ManagerError> {

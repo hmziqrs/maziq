@@ -12,6 +12,9 @@ use crate::{
 #[derive(Parser, Debug)]
 #[command(name = "maziq", about = "CLI for managing macOS development setups.")]
 pub struct Cli {
+    /// Global dry-run (applies to software installs, onboarding, configurator).
+    #[arg(long)]
+    pub dry_run: bool,
     #[command(subcommand)]
     pub command: Option<Commands>,
 }

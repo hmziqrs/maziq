@@ -98,6 +98,10 @@ impl App {
             quit: false,
         };
         app.refresh_statuses();
+        if crate::options::global_dry_run() {
+            app.push_log_line("Global dry-run mode enabled.".into());
+            app.message = "Dry-run: browse or preview workflows; no commands will execute.".into();
+        }
         app
     }
 
