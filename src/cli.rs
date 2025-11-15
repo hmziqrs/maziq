@@ -4,6 +4,7 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::{
     catalog::{self, CommandSource, SoftwareEntry, SoftwareId},
+    configurator::{self, ApplyOptions as ConfigApplyOptions},
     manager::{ActionKind, ExecutionEvent, SoftwareManager, StatusReport, StatusState},
     templates,
 };
@@ -92,6 +93,9 @@ pub enum ConfigCommand {
         /// Preview the actions without modifying the system.
         #[arg(long)]
         dry_run: bool,
+        /// Confirm experimental configurator usage.
+        #[arg(long = "experimental-config")]
+        experimental: bool,
     },
 }
 
@@ -233,28 +237,43 @@ fn run_onboard_flow(action: ActionKind, args: OnboardFlowArgs) -> Result<(), Box
 fn handle_config(cmd: ConfigCommand) -> Result<(), Box<dyn Error>> {
     match cmd {
         ConfigCommand::List => {
-            println!("Configurator profiles (experimental):");
-            println!("- git-basics (Git identity, SSH, GPG)");
-            println!("- hmziq-default (workstation defaults from hmziq)");
-            println!("\nUse `maziq config apply <profile> --dry-run` to preview.");
-        }
-        ConfigCommand::Apply { profile, dry_run } => {
-            println!(
-                "Configurator `{profile}` is experimental. {}",
-                if dry_run {
-                    "Dry run requested; showing preview only."
-                } else {
-                    "No actions executed yet."
-                }
-            );
-            println!("Planned steps:");
-            println!("- Backup existing git/ssh/gpg configs.");
-            println!("- Apply profile-specific settings.");
-            println!("- Set git default branch to master and pull.rebase true.");
-            if !dry_run {
+            println!("Configurator profiles (experimental):\n");
+            for profile in configurator::profiles() {
                 println!(
-                    "Execution pipeline not implemented. Re-run with --dry-run to inspect steps."
+                    "- {} ({}): {}",
+                    profile.id, profile.display_name, profile.description
                 );
+            }
+            println!(
+                "\nUse `maziq config apply <profile> --dry-run --experimental-config` to preview."
+            );
+        }
+        ConfigCommand::Apply {
+            profile,
+            dry_run,
+            experimental,
+        } => {
+            match configurator::apply_profile(
+                &profile,
+                ConfigApplyOptions {
+                    dry_run,
+                    experimental,
+                },
+            ) {
+                Ok(result) => {
+                    if let Some(path) = result.backup_path {
+                        println!("Existing gitconfig backed up to {}", path.display());
+                    }
+                    println!(
+                        "{} profile `{}`:",
+                        if result.dry_run { "Planned" } else { "Applied" },
+                        result.profile_id
+                    );
+                    for action in result.actions {
+                        println!("- {action}");
+                    }
+                }
+                Err(err) => eprintln!("Configurator error: {err}"),
             }
         }
     }

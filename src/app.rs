@@ -4,6 +4,7 @@ use ratatui::widgets::ListState;
 
 use crate::{
     catalog::{self, SoftwareHandle, SoftwareId},
+    configurator::{self, ApplyOptions as ConfigApplyOptions},
     manager::{ActionKind, ExecutionEvent, SoftwareManager, StatusState},
     templates,
 };
@@ -377,10 +378,23 @@ impl App {
     }
 
     fn show_config_preview(&mut self) {
-        self.message =
-            "Configurator is experimental. Use CLI `maziq config apply <profile> --dry-run`."
-                .into();
-        self.push_log_line("config: git-basics, hmziq-default profiles available".into());
+        match configurator::apply_profile(
+            "hmziq-default",
+            ConfigApplyOptions {
+                dry_run: true,
+                experimental: true,
+            },
+        ) {
+            Ok(result) => {
+                self.message = "Configurator preview (hmziq-default). Use CLI with --experimental-config to apply.".into();
+                for action in result.actions {
+                    self.push_log_line(format!("config preview -> {action}"));
+                }
+            }
+            Err(err) => {
+                self.message = format!("Configurator unavailable: {}", err);
+            }
+        }
     }
 
     fn append_log(&mut self, events: &[ExecutionEvent]) {
