@@ -72,6 +72,7 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
     }
 
     loop {
+        app.poll_task_events();
         terminal.draw(|frame| tui::draw(frame, &mut app))?;
 
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());

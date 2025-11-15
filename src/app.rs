@@ -5,7 +5,7 @@ use ratatui::widgets::ListState;
 use crate::{
     catalog::{self, SoftwareHandle, SoftwareId},
     configurator::{self, ApplyOptions as ConfigApplyOptions},
-    manager::{ActionKind, ExecutionEvent, SoftwareManager, StatusState},
+    manager::{ActionKind, ExecutionEvent, SoftwareManager, StatusReport, StatusState},
     templates,
 };
 
@@ -214,10 +214,7 @@ impl App {
                     self.message =
                         "Browse the catalog. Use Enter/u/x to install/update/uninstall.".into();
                 }
-                MenuAction::Versions => {
-                    self.refresh_statuses();
-                    self.message = "Versions refreshed via status probes.".into();
-                }
+                MenuAction::Versions => self.run_versions_check(),
             }
         }
     }
@@ -398,6 +395,41 @@ impl App {
             Err(err) => {
                 self.message = format!("Configurator unavailable: {}", err);
             }
+        }
+    }
+
+    fn run_versions_check(&mut self) {
+        let reports = self.manager.status_all();
+        self.message = format!("Versions refreshed for {} entries.", reports.len());
+        self.log_versions(&reports);
+        for report in reports {
+            self.statuses.insert(report.id, report.state);
+        }
+    }
+
+    fn log_versions(&mut self, reports: &[StatusReport]) {
+        let mut iter = reports.iter();
+        for report in iter.by_ref().take(4) {
+            let summary = match &report.state {
+                StatusState::Installed { version } => {
+                    format!(
+                        "{} -> {}",
+                        report.id.name(),
+                        version.clone().unwrap_or_else(|| "installed".into())
+                    )
+                }
+                StatusState::NotInstalled => format!("{} -> missing", report.id.name()),
+                StatusState::ManualCheck(note) => {
+                    format!("{} -> manual ({})", report.id.name(), note)
+                }
+                StatusState::Unknown(note) => {
+                    format!("{} -> unknown ({})", report.id.name(), note)
+                }
+            };
+            self.push_log_line(format!("versions -> {summary}"));
+        }
+        if iter.next().is_some() {
+            self.push_log_line("versions -> ...".into());
         }
     }
 
