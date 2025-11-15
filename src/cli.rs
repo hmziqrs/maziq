@@ -4,6 +4,7 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::{
     catalog::{self, SoftwareEntry, SoftwareId},
+    manager::{ActionKind, ExecutionEvent, SoftwareManager, StatusReport, StatusState},
     templates,
 };
 
@@ -25,7 +26,7 @@ enum Commands {
     /// Experimental workstation configuration helpers.
     #[command(subcommand)]
     Config(ConfigCommand),
-    /// Show version detection commands for every software entry.
+    /// Detect installed versions across all software.
     Versions,
 }
 
@@ -35,13 +36,30 @@ enum SoftwareCommand {
     List,
     /// Show detail for a specific software id (use the key, e.g. `rustup`).
     Show { id: String },
+    /// Install a specific software entry (resolves dependencies automatically).
+    Install(SoftwareActionArgs),
+    /// Update a specific software entry.
+    Update(SoftwareActionArgs),
+    /// Uninstall a specific software entry.
+    Uninstall(SoftwareActionArgs),
+    /// Show current status/version for a software entry.
+    Status { id: String },
+}
+
+#[derive(Args, Debug)]
+struct SoftwareActionArgs {
+    /// Software id (see `maziq software list` for options).
+    id: String,
+    /// Preview actions without modifying the system.
+    #[arg(long)]
+    dry_run: bool,
 }
 
 #[derive(Subcommand, Debug)]
 enum OnboardCommand {
-    /// Preview or dry-run the first-time install sequence.
+    /// Install every item defined in a template.
     Fresh(OnboardFlowArgs),
-    /// Preview or dry-run the update workflow for an existing install.
+    /// Update every item defined in a template.
     Update(OnboardFlowArgs),
     /// List available templates.
     Templates,
@@ -85,11 +103,11 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 fn handle_software(cmd: SoftwareCommand) -> Result<(), Box<dyn Error>> {
     match cmd {
         SoftwareCommand::List => {
-            println!("{:<20} {:<25} {:<8} {}", "Key", "Name", "Kind", "Category");
-            println!("{}", "-".repeat(80));
+            println!("{:<20} {:<26} {:<8} {}", "Key", "Name", "Kind", "Category");
+            println!("{}", "-".repeat(90));
             for entry in catalog::all_entries() {
                 println!(
-                    "{:<20} {:<25} {:<8} {}",
+                    "{:<20} {:<26} {:<8} {}",
                     entry.id.key(),
                     entry.display_name,
                     entry.kind.label(),
@@ -104,7 +122,35 @@ fn handle_software(cmd: SoftwareCommand) -> Result<(), Box<dyn Error>> {
                 eprintln!("Unknown software id `{id}`.");
             }
         }
+        SoftwareCommand::Install(args) => run_action_for_id(ActionKind::Install, args)?,
+        SoftwareCommand::Update(args) => run_action_for_id(ActionKind::Update, args)?,
+        SoftwareCommand::Uninstall(args) => run_action_for_id(ActionKind::Uninstall, args)?,
+        SoftwareCommand::Status { id } => {
+            if let Some(id) = SoftwareId::from_key(&id) {
+                let manager = SoftwareManager::new();
+                let status = manager.status(id)?;
+                print_status(&status);
+            } else {
+                eprintln!("Unknown software id `{id}`.");
+            }
+        }
     }
+    Ok(())
+}
+
+fn run_action_for_id(action: ActionKind, args: SoftwareActionArgs) -> Result<(), Box<dyn Error>> {
+    let Some(id) = SoftwareId::from_key(&args.id) else {
+        eprintln!("Unknown software id `{}`.", args.id);
+        return Ok(());
+    };
+    let manager = SoftwareManager::with_dry_run(args.dry_run);
+    let events = match action {
+        ActionKind::Install => manager.install(id)?,
+        ActionKind::Update => manager.update(id)?,
+        ActionKind::Uninstall => manager.uninstall(id)?,
+        ActionKind::Test => manager.install(id)?, // placeholder
+    };
+    render_events(&events);
     Ok(())
 }
 
@@ -129,38 +175,47 @@ fn handle_onboard(cmd: OnboardCommand) -> Result<(), Box<dyn Error>> {
                 }
             }
         }
-        OnboardCommand::Fresh(args) => preview_template("Fresh installation", args)?,
-        OnboardCommand::Update(args) => preview_template("Update workflow", args)?,
+        OnboardCommand::Fresh(args) => run_onboard_flow(ActionKind::Install, args)?,
+        OnboardCommand::Update(args) => run_onboard_flow(ActionKind::Update, args)?,
     }
     Ok(())
 }
 
-fn preview_template(label: &str, args: OnboardFlowArgs) -> Result<(), Box<dyn Error>> {
+fn run_onboard_flow(action: ActionKind, args: OnboardFlowArgs) -> Result<(), Box<dyn Error>> {
     let template = templates::load_named(&args.template)?;
-    println!("{label} for template `{}`", template.name);
+    println!(
+        "{} template `{}`{}",
+        match action {
+            ActionKind::Install => "Installing",
+            ActionKind::Update => "Updating",
+            ActionKind::Uninstall => "Uninstalling",
+            ActionKind::Test => "Testing",
+        },
+        template.name,
+        if args.dry_run { " (dry run)" } else { "" }
+    );
     if let Some(desc) = &template.description {
         println!("Description: {desc}");
     }
-    println!(
-        "Total software entries: {}{}",
-        template.software.len(),
-        if args.dry_run { " (dry run)" } else { "" }
-    );
-    for (index, id) in template.software.iter().enumerate() {
-        let entry = catalog::entry(*id);
+    let manager = SoftwareManager::with_dry_run(args.dry_run);
+    let plan = manager.plan(&template.software, action)?;
+    println!("\nExecution order:");
+    for (index, id) in plan.iter().enumerate() {
         println!(
-            "{:>2}. {:<24} {:<6} deps: {}",
+            "{:>2}. {:<24} deps: {}",
             index + 1,
-            entry.display_name,
-            entry.kind.label(),
-            format_dependencies(entry.dependencies)
+            id.name(),
+            format_dependencies(catalog::entry(*id).dependencies)
         );
     }
-    if !args.dry_run {
-        println!(
-            "\nExecution engine is not wired yet. Add `--dry-run` to preview without this notice."
-        );
-    }
+    println!();
+    let events = match action {
+        ActionKind::Install => manager.install_many(&template.software)?,
+        ActionKind::Update => manager.update_many(&template.software)?,
+        ActionKind::Uninstall => manager.uninstall_many(&template.software)?,
+        ActionKind::Test => manager.install_many(&template.software)?,
+    };
+    render_events(&events);
     Ok(())
 }
 
@@ -196,13 +251,10 @@ fn handle_config(cmd: ConfigCommand) -> Result<(), Box<dyn Error>> {
 }
 
 fn handle_versions() {
-    println!("Version detection commands:");
-    for entry in catalog::all_entries() {
-        println!(
-            "- {:<22}: {}",
-            entry.display_name,
-            entry.version_probe.description()
-        );
+    let manager = SoftwareManager::new();
+    println!("Detected software versions:");
+    for report in manager.status_all() {
+        println!("{}", summarize_status(&report));
     }
 }
 
@@ -229,6 +281,52 @@ fn print_entry(entry: &SoftwareEntry) {
     println!("Install: {}", entry.install.description());
     println!("Update: {}", entry.update.description());
     println!("Uninstall: {}", entry.uninstall.description());
+}
+
+fn render_events(events: &[ExecutionEvent]) {
+    if events.is_empty() {
+        println!("No actions executed.");
+        return;
+    }
+    println!("Action log:");
+    for event in events {
+        println!("- {}", event.summary());
+    }
+}
+
+fn print_status(report: &StatusReport) {
+    println!("{}", summarize_status(report));
+}
+
+fn summarize_status(report: &StatusReport) -> String {
+    match &report.state {
+        StatusState::Installed { version } => {
+            if let Some(version) = version {
+                format!("{} ({}) -> {}", report.id.name(), report.id.key(), version)
+            } else {
+                format!("{} ({}) -> installed", report.id.name(), report.id.key())
+            }
+        }
+        StatusState::NotInstalled => {
+            format!(
+                "{} ({}) -> not installed",
+                report.id.name(),
+                report.id.key()
+            )
+        }
+        StatusState::ManualCheck(note) => format!(
+            "{} ({}) -> manual check required: {}",
+            report.id.name(),
+            report.id.key(),
+            note
+        ),
+        StatusState::Unknown(note) => format!(
+            "{} ({}) -> unknown: {}",
+            report.id.name(),
+            report.id.key(),
+            note
+        ),
+    }
 }
 
 fn format_dependencies(ids: &[SoftwareId]) -> String {

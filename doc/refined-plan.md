@@ -26,17 +26,17 @@
 **Implementation Phases (Codex Checklist)**
 
 _Phase 1 – Core CLI & structure_
-- [ ] Scaffold the CLI binary with subcommands: `software`, `onboard`, `config`, `versions`.
-- [ ] Define a data model for software entries (id, display name, GUI/CLI, version command, install/update/uninstall strategy, dependencies, Homebrew cask/formula name).
-- [ ] Implement loading of software templates/configs, including a default `hmziq` template.
+- [x] Scaffold the CLI binary with subcommands: `software`, `onboard`, `config`, `versions`.
+- [x] Define a data model for software entries (id, display name, GUI/CLI, version command, install/update/uninstall strategy, dependencies, Homebrew cask/formula name).
+- [x] Implement loading of software templates/configs, including a default `hmziq` template.
 
 _Phase 2 – Software manager engine_
-- [ ] Implement a per-software adapter trait (install, update, uninstall, status, test).
-- [ ] Register adapters for key tools (Rust, Bun, Node.js, just, Codex, Flutter, Android Studio, Xcode, VS Code, Cursor, etc.).
-- [ ] Implement dependency-aware execution so prerequisites (e.g. Rust for `just`, Bun/Node for `codex`) are installed first.
-- [ ] Implement status detection (installed / outdated / not installed) using the standardized version detection rules and Homebrew metadata.
-- [ ] Implement install/update/uninstall commands for individual software and for all items in a template.
-- [ ] Implement a `versions` command (or similar) that prints all detected software versions in one run.
+- [x] Implement a per-software adapter trait (install, update, uninstall, status, test).
+- [x] Register adapters for key tools (Rust, Bun, Node.js, just, Codex, Flutter, Android Studio, Xcode, VS Code, Cursor, etc.).
+- [x] Implement dependency-aware execution so prerequisites (e.g. Rust for `just`, Bun/Node for `codex`) are installed first.
+- [x] Implement status detection (installed / outdated / not installed) using the standardized version detection rules and Homebrew metadata.
+- [x] Implement install/update/uninstall commands for individual software and for all items in a template.
+- [x] Implement a `versions` command (or similar) that prints all detected software versions in one run.
 
 _Phase 3 – GUI apps & Homebrew_
 - [ ] Implement respectful installation of GUI apps via Homebrew casks (e.g. `brew install --cask android-studio`).
