@@ -91,6 +91,12 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
                             if let Some(index) = (digit as u8).checked_sub(b'1') {
                                 app.activate_menu_index(index as usize);
                             }
+                        } else if matches!(app.screen(), app::Screen::E2ETest) && app.e2e_software().is_none() {
+                            match digit {
+                                '1' => app.select_e2e_software(crate::catalog::SoftwareId::Neovim),
+                                '2' => app.select_e2e_software(crate::catalog::SoftwareId::Btop),
+                                _ => {}
+                            }
                         }
                     }
                     KeyCode::Down | KeyCode::Char('j') => app.next(),
@@ -98,6 +104,13 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
                     KeyCode::Enter | KeyCode::Char(' ') => match app.screen() {
                         app::Screen::Menu => app.activate_menu(),
                         app::Screen::Software => app.install_selected(),
+                        app::Screen::E2ETest => {
+                            if app.e2e_software().is_none() {
+                                // Do nothing on selection screen, use number keys
+                            } else if app.e2e_tab() == app::E2ETab::Execute && !app.e2e_executing() {
+                                app.execute_e2e();
+                            }
+                        }
                     },
                     KeyCode::Char('u') => {
                         if matches!(app.screen(), app::Screen::Software) {
@@ -116,6 +129,15 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
                     }
                     KeyCode::Char('r') => app.refresh_statuses_with_feedback(),
                     KeyCode::Char('t') => app.toggle_task_view(),
+                    KeyCode::Tab | KeyCode::Right | KeyCode::Left => {
+                        if matches!(app.screen(), app::Screen::E2ETest) && app.e2e_software().is_some() {
+                            if matches!(key.code, KeyCode::Left) {
+                                app.previous();
+                            } else {
+                                app.next();
+                            }
+                        }
+                    }
                     _ => {}
                 }
             }

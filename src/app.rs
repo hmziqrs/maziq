@@ -22,6 +22,7 @@ const MAX_TASKS: usize = 4;
 pub enum Screen {
     Menu,
     Software,
+    E2ETest,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -38,6 +39,7 @@ enum MenuAction {
     Config,
     SoftwareCatalog,
     Versions,
+    E2ETest,
 }
 
 const MENU_ENTRIES: &[MenuEntry] = &[
@@ -66,6 +68,11 @@ const MENU_ENTRIES: &[MenuEntry] = &[
         description: "Refresh and display detected versions/statuses.",
         action: MenuAction::Versions,
     },
+    MenuEntry {
+        label: "Brew End to End Test",
+        description: "Test install, update, and remove flows for neovim or btop.",
+        action: MenuAction::E2ETest,
+    },
 ];
 
 #[derive(Clone)]
@@ -84,6 +91,9 @@ enum TaskAction {
         dry_run: bool,
     },
     Versions,
+    E2EFlow {
+        software: SoftwareId,
+    },
 }
 
 struct TaskEvent {
@@ -98,6 +108,22 @@ pub struct TaskLog {
     pub id: u64,
     pub label: String,
     pub lines: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum E2ETab {
+    Install,
+    Update,
+    Remove,
+    Execute,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum E2EStepStatus {
+    Pending,
+    Running,
+    Done,
+    Skipped,
 }
 
 pub struct App {
@@ -117,6 +143,12 @@ pub struct App {
     initial_task: Option<u64>,
     pub message: String,
     pub quit: bool,
+    e2e_software: Option<SoftwareId>,
+    e2e_tab: E2ETab,
+    e2e_install_status: E2EStepStatus,
+    e2e_update_status: E2EStepStatus,
+    e2e_remove_status: E2EStepStatus,
+    e2e_executing: bool,
 }
 
 impl App {
@@ -152,6 +184,12 @@ impl App {
             initial_task: None,
             message: "Select a workflow from the menu (Onboard/Update/Config/Catalog).".into(),
             quit: false,
+            e2e_software: None,
+            e2e_tab: E2ETab::Install,
+            e2e_install_status: E2EStepStatus::Pending,
+            e2e_update_status: E2EStepStatus::Pending,
+            e2e_remove_status: E2EStepStatus::Pending,
+            e2e_executing: false,
         };
         if crate::options::global_dry_run() {
             app.push_log_line("Global dry-run mode enabled.".into());
@@ -250,6 +288,16 @@ impl App {
                 let next = (current + 1) % self.handles.len();
                 self.state.select(Some(next));
             }
+            Screen::E2ETest => {
+                if self.e2e_software.is_some() && !self.e2e_executing {
+                    self.e2e_tab = match self.e2e_tab {
+                        E2ETab::Install => E2ETab::Update,
+                        E2ETab::Update => E2ETab::Remove,
+                        E2ETab::Remove => E2ETab::Execute,
+                        E2ETab::Execute => E2ETab::Install,
+                    };
+                }
+            }
         }
     }
 
@@ -279,6 +327,16 @@ impl App {
                 };
                 self.state.select(Some(prev));
             }
+            Screen::E2ETest => {
+                if self.e2e_software.is_some() && !self.e2e_executing {
+                    self.e2e_tab = match self.e2e_tab {
+                        E2ETab::Install => E2ETab::Execute,
+                        E2ETab::Update => E2ETab::Install,
+                        E2ETab::Remove => E2ETab::Update,
+                        E2ETab::Execute => E2ETab::Remove,
+                    };
+                }
+            }
         }
     }
 
@@ -306,6 +364,16 @@ impl App {
                         "Browse the catalog. Use Enter/u/x to install/update/uninstall.".into();
                 }
                 MenuAction::Versions => self.run_versions_check(),
+                MenuAction::E2ETest => {
+                    self.screen = Screen::E2ETest;
+                    self.e2e_software = None;
+                    self.e2e_tab = E2ETab::Install;
+                    self.e2e_install_status = E2EStepStatus::Pending;
+                    self.e2e_update_status = E2EStepStatus::Pending;
+                    self.e2e_remove_status = E2EStepStatus::Pending;
+                    self.e2e_executing = false;
+                    self.message = "Select a software: 1=Neovim, 2=btop".into();
+                }
             }
         }
     }
@@ -512,6 +580,64 @@ impl App {
         }
     }
 
+    pub fn e2e_software(&self) -> Option<SoftwareId> {
+        self.e2e_software
+    }
+
+    pub fn e2e_tab(&self) -> E2ETab {
+        self.e2e_tab
+    }
+
+    pub fn e2e_install_status(&self) -> E2EStepStatus {
+        self.e2e_install_status
+    }
+
+    pub fn e2e_update_status(&self) -> E2EStepStatus {
+        self.e2e_update_status
+    }
+
+    pub fn e2e_remove_status(&self) -> E2EStepStatus {
+        self.e2e_remove_status
+    }
+
+    pub fn e2e_executing(&self) -> bool {
+        self.e2e_executing
+    }
+
+    pub fn select_e2e_software(&mut self, software: SoftwareId) {
+        self.e2e_software = Some(software);
+        self.message = format!("Selected {}. Configure steps, then navigate to Execute tab.", software.name());
+    }
+
+    pub fn execute_e2e(&mut self) {
+        if let Some(software) = self.e2e_software {
+            if !self.e2e_executing {
+                self.e2e_executing = true;
+                self.e2e_install_status = E2EStepStatus::Pending;
+                self.e2e_update_status = E2EStepStatus::Pending;
+                self.e2e_remove_status = E2EStepStatus::Pending;
+
+                let request = TaskRequest {
+                    id: self.next_task_id,
+                    label: format!("E2E Test: {}", software.name()),
+                    action: TaskAction::E2EFlow { software },
+                };
+                self.next_task_id += 1;
+                let queued_id = request.id;
+                let queued_label = request.label.clone();
+
+                if self.task_sender.send(request).is_ok() {
+                    self.message = "E2E test executing...".into();
+                    self.add_task_log(queued_id, queued_label, "queued".into());
+                    self.show_tasks = true;
+                } else {
+                    self.message = "Failed to queue E2E task.".into();
+                    self.e2e_executing = false;
+                }
+            }
+        }
+    }
+
     fn append_log(&mut self, events: &[ExecutionEvent]) {
         for event in events {
             self.push_log_line(event.summary());
@@ -659,6 +785,66 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                         messages,
                         Some(reports),
                     );
+                }
+                TaskAction::E2EFlow { software } => {
+                    let dry_run = crate::options::global_dry_run();
+                    let manager = SoftwareManager::with_flags(dry_run, false);
+                    let software_vec = vec![software];
+
+                    // Step 1: Install
+                    send_event(&event_tx, request.id, &request.label, vec!["Step 1/3: Installing...".into()], None);
+                    let event_tx_clone = event_tx.clone();
+                    let request_id = request.id;
+                    let request_label = request.label.clone();
+                    let mut callback = |event: &ExecutionEvent| {
+                        send_event(&event_tx_clone, request_id, &request_label, vec![format!("  {}", event.summary())], None);
+                    };
+
+                    if !dry_run {
+                        match manager.install_many(&software_vec, Some(&mut callback)) {
+                            Ok(_) => {
+                                send_event(&event_tx, request.id, &request.label, vec!["  Install complete".into()], None);
+                            }
+                            Err(err) => {
+                                send_event(&event_tx, request.id, &request.label, vec![format!("  Install failed: {}", err)], None);
+                            }
+                        }
+                    } else {
+                        send_event(&event_tx, request.id, &request.label, vec!["  Install skipped (dry-run)".into()], None);
+                    }
+
+                    // Step 2: Update
+                    send_event(&event_tx, request.id, &request.label, vec!["Step 2/3: Updating...".into()], None);
+                    if !dry_run {
+                        match manager.update_many(&software_vec, Some(&mut callback)) {
+                            Ok(_) => {
+                                send_event(&event_tx, request.id, &request.label, vec!["  Update complete".into()], None);
+                            }
+                            Err(err) => {
+                                send_event(&event_tx, request.id, &request.label, vec![format!("  Update failed: {}", err)], None);
+                            }
+                        }
+                    } else {
+                        send_event(&event_tx, request.id, &request.label, vec!["  Update skipped (dry-run)".into()], None);
+                    }
+
+                    // Step 3: Remove
+                    send_event(&event_tx, request.id, &request.label, vec!["Step 3/3: Removing...".into()], None);
+                    if !dry_run {
+                        match manager.uninstall_many(&software_vec, Some(&mut callback)) {
+                            Ok(_) => {
+                                send_event(&event_tx, request.id, &request.label, vec!["  Remove complete".into()], None);
+                            }
+                            Err(err) => {
+                                send_event(&event_tx, request.id, &request.label, vec![format!("  Remove failed: {}", err)], None);
+                            }
+                        }
+                    } else {
+                        send_event(&event_tx, request.id, &request.label, vec!["  Remove skipped (dry-run)".into()], None);
+                    }
+
+                    // Done
+                    send_event(&event_tx, request.id, &request.label, vec!["E2E test complete".into(), "done".into()], None);
                 }
             }
         }

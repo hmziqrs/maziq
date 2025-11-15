@@ -59,6 +59,7 @@ pub enum SoftwareId {
     Bat,
     Fzf,
     Btop,
+    Neovim,
     CodexCli,
     ClaudeCli,
     ClaudeMultiCli,
@@ -151,6 +152,7 @@ pub const ALL_SOFTWARE: &[SoftwareId] = &[
     SoftwareId::Bat,
     SoftwareId::Fzf,
     SoftwareId::Btop,
+    SoftwareId::Neovim,
     SoftwareId::CodexCli,
     SoftwareId::ClaudeCli,
     SoftwareId::ClaudeMultiCli,
@@ -413,6 +415,7 @@ impl SoftwareId {
             Self::Bat => "bat",
             Self::Fzf => "fzf",
             Self::Btop => "btop",
+            Self::Neovim => "neovim",
             Self::CodexCli => "codex_cli",
             Self::ClaudeCli => "claude_cli",
             Self::ClaudeMultiCli => "claude_multi_cli",
@@ -488,6 +491,7 @@ impl SoftwareId {
             Self::Bat => "bat",
             Self::Fzf => "fzf",
             Self::Btop => "btop",
+            Self::Neovim => "Neovim",
             Self::CodexCli => "Codex CLI",
             Self::ClaudeCli => "Claude CLI",
             Self::ClaudeMultiCli => "Claude Multi CLI",
@@ -559,6 +563,7 @@ impl SoftwareId {
             Self::Bat => "Cat clone with syntax highlighting and Git integration.",
             Self::Fzf => "General-purpose command-line fuzzy finder.",
             Self::Btop => "Resource monitor with modern interface.",
+            Self::Neovim => "Hyperextensible Vim-based text editor.",
             Self::CodexCli => "Command-line interface for Codex-style AI coding.",
             Self::ClaudeCli => "Anthropic Claude assistant from the terminal.",
             Self::ClaudeMultiCli => "Manage multiple Claude sessions and keys via CLI.",
@@ -607,7 +612,7 @@ impl SoftwareId {
             | Self::QwenCli
             | Self::OpencodeCli => "JavaScript & AI CLIs",
             Self::Kubectl | Self::Terraform | Self::AwsCli | Self::AzureCli => "DevOps & Cloud",
-            Self::Jq | Self::Ripgrep | Self::Fd | Self::Bat | Self::Fzf | Self::Btop => "CLI Utilities",
+            Self::Jq | Self::Ripgrep | Self::Fd | Self::Bat | Self::Fzf | Self::Btop | Self::Neovim => "CLI Utilities",
             Self::Go => "Languages",
             Self::Flutter | Self::AndroidStudio | Self::ReactNativeCli => "Mobile / Cross-Platform",
         }
@@ -694,7 +699,8 @@ impl SoftwareId {
             | Self::Fd
             | Self::Bat
             | Self::Fzf
-            | Self::Btop => &[SoftwareId::Homebrew],
+            | Self::Btop
+            | Self::Neovim => &[SoftwareId::Homebrew],
             Self::Rustup => &[],
             Self::RustStable | Self::RustNightly => &[SoftwareId::Rustup],
             Self::CargoJust
@@ -926,6 +932,10 @@ impl SoftwareId {
                 program: "btop",
                 args: &["--version"],
             },
+            Self::Neovim => VersionProbe::Command {
+                program: "nvim",
+                args: &["--version"],
+            },
             Self::CodexCli => VersionProbe::Command {
                 program: "codex",
                 args: &["--version"],
@@ -1034,6 +1044,7 @@ impl SoftwareId {
             Self::Bat => CommandRecipe::Shell("brew install bat"),
             Self::Fzf => CommandRecipe::Shell("brew install fzf"),
             Self::Btop => CommandRecipe::Shell("brew install btop"),
+            Self::Neovim => CommandRecipe::Shell("brew install neovim"),
             Self::CodexCli => CommandRecipe::Shell("npm install -g codex-cli"),
             Self::ClaudeCli => CommandRecipe::Shell("npm install -g claude-cli"),
             Self::ClaudeMultiCli => CommandRecipe::Shell("npm install -g claude-multi-cli"),
@@ -1113,6 +1124,7 @@ impl SoftwareId {
             Self::Bat => CommandRecipe::Shell("brew upgrade bat"),
             Self::Fzf => CommandRecipe::Shell("brew upgrade fzf"),
             Self::Btop => CommandRecipe::Shell("brew upgrade btop"),
+            Self::Neovim => CommandRecipe::Shell("brew upgrade neovim"),
             Self::CodexCli => CommandRecipe::Shell("npm update -g codex-cli"),
             Self::ClaudeCli => CommandRecipe::Shell("npm update -g claude-cli"),
             Self::ClaudeMultiCli => CommandRecipe::Shell("npm update -g claude-multi-cli"),
@@ -1192,6 +1204,7 @@ impl SoftwareId {
             Self::Bat => CommandRecipe::Shell("brew uninstall bat"),
             Self::Fzf => CommandRecipe::Shell("brew uninstall fzf"),
             Self::Btop => CommandRecipe::Shell("brew uninstall btop"),
+            Self::Neovim => CommandRecipe::Shell("brew uninstall neovim"),
             Self::CodexCli => CommandRecipe::Shell("npm uninstall -g codex-cli"),
             Self::ClaudeCli => CommandRecipe::Shell("npm uninstall -g claude-cli"),
             Self::ClaudeMultiCli => CommandRecipe::Shell("npm uninstall -g claude-multi-cli"),
@@ -1326,7 +1339,7 @@ pub const CATEGORIES: &[SoftwareCategory] = &[
     },
     SoftwareCategory {
         name: "CLI Utilities",
-        entries: &[SoftwareId::Jq, SoftwareId::Ripgrep, SoftwareId::Fd, SoftwareId::Bat, SoftwareId::Fzf, SoftwareId::Btop],
+        entries: &[SoftwareId::Jq, SoftwareId::Ripgrep, SoftwareId::Fd, SoftwareId::Bat, SoftwareId::Fzf, SoftwareId::Btop, SoftwareId::Neovim],
     },
     SoftwareCategory {
         name: "AI Assistant CLIs",
