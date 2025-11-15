@@ -99,6 +99,7 @@ pub struct App {
     task_sender: Sender<TaskRequest>,
     event_receiver: Receiver<TaskEvent>,
     next_task_id: u64,
+    menu_enabled: bool,
     pub message: String,
     pub quit: bool,
 }
@@ -130,15 +131,32 @@ impl App {
             task_sender: task_tx,
             event_receiver: event_rx,
             next_task_id: 1,
+            menu_enabled: false,
             message: "Select a workflow from the menu (Onboard/Update/Config/Catalog).".into(),
             quit: false,
         };
-        app.refresh_statuses();
         if crate::options::global_dry_run() {
             app.push_log_line("Global dry-run mode enabled.".into());
             app.message = "Dry-run: browse or preview workflows; no commands will execute.".into();
         }
+        app.queue_initial_status_refresh();
         app
+    }
+
+    fn queue_initial_status_refresh(&mut self) {
+        let request = TaskRequest {
+            id: self.next_task_id,
+            label: "Initial status refresh".into(),
+            action: TaskAction::Versions,
+        };
+        self.next_task_id += 1;
+        if self.task_sender.send(request).is_ok() {
+            self.message = "Loading statuses...".into();
+            self.push_log_line("Queueing initial status refresh".into());
+        } else {
+            self.menu_enabled = true;
+            self.message = "Failed to queue status refresh.".into();
+        }
     }
 
     pub fn handles(&self) -> &[SoftwareHandle] {
@@ -178,7 +196,11 @@ impl App {
 
     pub fn enter_menu(&mut self) {
         self.screen = Screen::Menu;
-        self.message = "Select a workflow from the menu.".into();
+        if self.menu_enabled {
+            self.message = "Select a workflow from the menu.".into();
+        } else {
+            self.message = "Loading statuses...".into();
+        }
     }
 
     pub fn next(&mut self) {
@@ -238,6 +260,10 @@ impl App {
     }
 
     pub fn activate_menu_index(&mut self, index: usize) {
+        if !self.menu_enabled {
+            self.message = "Initial status refresh running; please wait.".into();
+            return;
+        }
         if let Some(entry) = MENU_ENTRIES.get(index) {
             self.message = format!("Selected {}", entry.label);
             self.push_log_line(format!("menu -> {}", entry.label));
@@ -305,6 +331,10 @@ impl App {
     fn run_on_selected(&mut self, action: ActionKind) {
         if self.screen != Screen::Software {
             self.message = "Open the software catalog to manage individual entries.".into();
+            return;
+        }
+        if !self.menu_enabled {
+            self.message = "Initial status refresh running; please wait.".into();
             return;
         }
         if let Some(index) = self.state.selected() {
@@ -508,6 +538,10 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                         vec![format!("Versions refreshed for {} entries", reports.len())];
                     messages.extend(summarize_reports(&reports));
                     send_event(&event_tx, messages, Some(reports));
+                    let _ = event_tx.send(TaskEvent {
+                        messages: vec!["initial status refresh complete".into()],
+                        statuses: None,
+                    });
                 }
             }
         }
