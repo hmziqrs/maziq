@@ -93,6 +93,9 @@ enum TaskAction {
     Versions,
     E2EFlow {
         software: SoftwareId,
+        install_enabled: bool,
+        update_enabled: bool,
+        remove_enabled: bool,
     },
 }
 
@@ -145,6 +148,9 @@ pub struct App {
     pub quit: bool,
     e2e_software: Option<SoftwareId>,
     e2e_tab: E2ETab,
+    e2e_install_enabled: bool,
+    e2e_update_enabled: bool,
+    e2e_remove_enabled: bool,
     e2e_install_status: E2EStepStatus,
     e2e_update_status: E2EStepStatus,
     e2e_remove_status: E2EStepStatus,
@@ -186,6 +192,9 @@ impl App {
             quit: false,
             e2e_software: None,
             e2e_tab: E2ETab::Install,
+            e2e_install_enabled: true,
+            e2e_update_enabled: true,
+            e2e_remove_enabled: true,
             e2e_install_status: E2EStepStatus::Pending,
             e2e_update_status: E2EStepStatus::Pending,
             e2e_remove_status: E2EStepStatus::Pending,
@@ -368,6 +377,9 @@ impl App {
                     self.screen = Screen::E2ETest;
                     self.e2e_software = None;
                     self.e2e_tab = E2ETab::Install;
+                    self.e2e_install_enabled = true;
+                    self.e2e_update_enabled = true;
+                    self.e2e_remove_enabled = true;
                     self.e2e_install_status = E2EStepStatus::Pending;
                     self.e2e_update_status = E2EStepStatus::Pending;
                     self.e2e_remove_status = E2EStepStatus::Pending;
@@ -604,6 +616,41 @@ impl App {
         self.e2e_executing
     }
 
+    pub fn e2e_install_enabled(&self) -> bool {
+        self.e2e_install_enabled
+    }
+
+    pub fn e2e_update_enabled(&self) -> bool {
+        self.e2e_update_enabled
+    }
+
+    pub fn e2e_remove_enabled(&self) -> bool {
+        self.e2e_remove_enabled
+    }
+
+    pub fn toggle_e2e_step(&mut self) {
+        if self.e2e_executing {
+            return;
+        }
+        match self.e2e_tab {
+            E2ETab::Install => {
+                self.e2e_install_enabled = !self.e2e_install_enabled;
+                self.message = format!("Install step {}", if self.e2e_install_enabled { "enabled" } else { "disabled" });
+            }
+            E2ETab::Update => {
+                self.e2e_update_enabled = !self.e2e_update_enabled;
+                self.message = format!("Update step {}", if self.e2e_update_enabled { "enabled" } else { "disabled" });
+            }
+            E2ETab::Remove => {
+                self.e2e_remove_enabled = !self.e2e_remove_enabled;
+                self.message = format!("Remove step {}", if self.e2e_remove_enabled { "enabled" } else { "disabled" });
+            }
+            E2ETab::Execute => {
+                // No toggle on Execute tab
+            }
+        }
+    }
+
     pub fn select_e2e_software(&mut self, software: SoftwareId) {
         self.e2e_software = Some(software);
         self.message = format!("Selected {}. Configure steps, then navigate to Execute tab.", software.name());
@@ -620,7 +667,12 @@ impl App {
                 let request = TaskRequest {
                     id: self.next_task_id,
                     label: format!("E2E Test: {}", software.name()),
-                    action: TaskAction::E2EFlow { software },
+                    action: TaskAction::E2EFlow {
+                        software,
+                        install_enabled: self.e2e_install_enabled,
+                        update_enabled: self.e2e_update_enabled,
+                        remove_enabled: self.e2e_remove_enabled,
+                    },
                 };
                 self.next_task_id += 1;
                 let queued_id = request.id;
@@ -786,13 +838,11 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                         Some(reports),
                     );
                 }
-                TaskAction::E2EFlow { software } => {
+                TaskAction::E2EFlow { software, install_enabled, update_enabled, remove_enabled } => {
                     let dry_run = crate::options::global_dry_run();
                     let manager = SoftwareManager::with_flags(dry_run, false);
                     let software_vec = vec![software];
 
-                    // Step 1: Install
-                    send_event(&event_tx, request.id, &request.label, vec!["Step 1/3: Installing...".into()], None);
                     let event_tx_clone = event_tx.clone();
                     let request_id = request.id;
                     let request_label = request.label.clone();
@@ -800,47 +850,61 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                         send_event(&event_tx_clone, request_id, &request_label, vec![format!("  {}", event.summary())], None);
                     };
 
-                    if !dry_run {
-                        match manager.install_many(&software_vec, Some(&mut callback)) {
-                            Ok(_) => {
-                                send_event(&event_tx, request.id, &request.label, vec!["  Install complete".into()], None);
+                    // Step 1: Install
+                    if install_enabled {
+                        send_event(&event_tx, request.id, &request.label, vec!["Step 1: Installing...".into()], None);
+                        if !dry_run {
+                            match manager.install_many(&software_vec, Some(&mut callback)) {
+                                Ok(_) => {
+                                    send_event(&event_tx, request.id, &request.label, vec!["  Install complete".into()], None);
+                                }
+                                Err(err) => {
+                                    send_event(&event_tx, request.id, &request.label, vec![format!("  Install failed: {}", err)], None);
+                                }
                             }
-                            Err(err) => {
-                                send_event(&event_tx, request.id, &request.label, vec![format!("  Install failed: {}", err)], None);
-                            }
+                        } else {
+                            send_event(&event_tx, request.id, &request.label, vec!["  Install skipped (dry-run)".into()], None);
                         }
                     } else {
-                        send_event(&event_tx, request.id, &request.label, vec!["  Install skipped (dry-run)".into()], None);
+                        send_event(&event_tx, request.id, &request.label, vec!["Step 1: Install skipped (disabled)".into()], None);
                     }
 
                     // Step 2: Update
-                    send_event(&event_tx, request.id, &request.label, vec!["Step 2/3: Updating...".into()], None);
-                    if !dry_run {
-                        match manager.update_many(&software_vec, Some(&mut callback)) {
-                            Ok(_) => {
-                                send_event(&event_tx, request.id, &request.label, vec!["  Update complete".into()], None);
+                    if update_enabled {
+                        send_event(&event_tx, request.id, &request.label, vec!["Step 2: Updating...".into()], None);
+                        if !dry_run {
+                            match manager.update_many(&software_vec, Some(&mut callback)) {
+                                Ok(_) => {
+                                    send_event(&event_tx, request.id, &request.label, vec!["  Update complete".into()], None);
+                                }
+                                Err(err) => {
+                                    send_event(&event_tx, request.id, &request.label, vec![format!("  Update failed: {}", err)], None);
+                                }
                             }
-                            Err(err) => {
-                                send_event(&event_tx, request.id, &request.label, vec![format!("  Update failed: {}", err)], None);
-                            }
+                        } else {
+                            send_event(&event_tx, request.id, &request.label, vec!["  Update skipped (dry-run)".into()], None);
                         }
                     } else {
-                        send_event(&event_tx, request.id, &request.label, vec!["  Update skipped (dry-run)".into()], None);
+                        send_event(&event_tx, request.id, &request.label, vec!["Step 2: Update skipped (disabled)".into()], None);
                     }
 
                     // Step 3: Remove
-                    send_event(&event_tx, request.id, &request.label, vec!["Step 3/3: Removing...".into()], None);
-                    if !dry_run {
-                        match manager.uninstall_many(&software_vec, Some(&mut callback)) {
-                            Ok(_) => {
-                                send_event(&event_tx, request.id, &request.label, vec!["  Remove complete".into()], None);
+                    if remove_enabled {
+                        send_event(&event_tx, request.id, &request.label, vec!["Step 3: Removing...".into()], None);
+                        if !dry_run {
+                            match manager.uninstall_many(&software_vec, Some(&mut callback)) {
+                                Ok(_) => {
+                                    send_event(&event_tx, request.id, &request.label, vec!["  Remove complete".into()], None);
+                                }
+                                Err(err) => {
+                                    send_event(&event_tx, request.id, &request.label, vec![format!("  Remove failed: {}", err)], None);
+                                }
                             }
-                            Err(err) => {
-                                send_event(&event_tx, request.id, &request.label, vec![format!("  Remove failed: {}", err)], None);
-                            }
+                        } else {
+                            send_event(&event_tx, request.id, &request.label, vec!["  Remove skipped (dry-run)".into()], None);
                         }
                     } else {
-                        send_event(&event_tx, request.id, &request.label, vec!["  Remove skipped (dry-run)".into()], None);
+                        send_event(&event_tx, request.id, &request.label, vec!["Step 3: Remove skipped (disabled)".into()], None);
                     }
 
                     // Done

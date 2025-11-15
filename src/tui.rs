@@ -231,7 +231,7 @@ fn render_task_logs(app: &App) -> String {
 }
 
 fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
-    let chunks = Layout::default()
+    let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),
@@ -245,7 +245,7 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
     let title = Paragraph::new("Brew End-to-End Test")
         .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
         .block(Block::default().borders(Borders::ALL));
-    frame.render_widget(title, chunks[0]);
+    frame.render_widget(title, main_chunks[0]);
 
     // Software selection or tabs
     if app.e2e_software().is_none() {
@@ -253,11 +253,11 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
         let selection = Paragraph::new(selection_text)
             .style(Style::default().fg(Color::Yellow))
             .block(Block::default().title("Selection").borders(Borders::ALL));
-        frame.render_widget(selection, chunks[1]);
+        frame.render_widget(selection, main_chunks[1]);
 
         let info = Paragraph::new("This test will run install → update → remove for the selected software.\nUse this to verify the complete lifecycle of package management.")
             .block(Block::default().title("Info").borders(Borders::ALL));
-        frame.render_widget(info, chunks[2]);
+        frame.render_widget(info, main_chunks[2]);
     } else {
         // Draw horizontal tabs
         let current_tab = app.e2e_tab();
@@ -271,11 +271,25 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
         let tabs = Paragraph::new(tabs_text)
             .style(Style::default().fg(Color::Cyan))
             .block(Block::default().title("Steps").borders(Borders::ALL));
-        frame.render_widget(tabs, chunks[1]);
+        frame.render_widget(tabs, main_chunks[1]);
+
+        // Split content area if executing to show logs
+        let content_chunks = if app.e2e_executing() {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(6), Constraint::Min(4)])
+                .split(main_chunks[2])
+        } else {
+            Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(8)])
+                .split(main_chunks[2])
+        };
 
         // Tab content
         let content = match current_tab {
             E2ETab::Install => {
+                let checkbox = if app.e2e_install_enabled() { "[✓]" } else { "[ ]" };
                 let status_icon = match app.e2e_install_status() {
                     E2EStepStatus::Pending => "⏸",
                     E2EStepStatus::Running => "▶",
@@ -283,8 +297,9 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
                     E2EStepStatus::Skipped => "⊘",
                 };
                 format!(
-                    "{} Install Step\n\nThis step will install the selected software.\n\nStatus: {}",
+                    "{} Install Step\n\n{} Enabled\n\nThis step will install the selected software.\n\nStatus: {}\n\nPress Space to toggle this step.",
                     status_icon,
+                    checkbox,
                     match app.e2e_install_status() {
                         E2EStepStatus::Pending => "Pending",
                         E2EStepStatus::Running => "Running...",
@@ -294,6 +309,7 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
                 )
             }
             E2ETab::Update => {
+                let checkbox = if app.e2e_update_enabled() { "[✓]" } else { "[ ]" };
                 let status_icon = match app.e2e_update_status() {
                     E2EStepStatus::Pending => "⏸",
                     E2EStepStatus::Running => "▶",
@@ -301,8 +317,9 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
                     E2EStepStatus::Skipped => "⊘",
                 };
                 format!(
-                    "{} Update Step\n\nThis step will update the software to the latest version.\n\nStatus: {}",
+                    "{} Update Step\n\n{} Enabled\n\nThis step will update the software to the latest version.\n\nStatus: {}\n\nPress Space to toggle this step.",
                     status_icon,
+                    checkbox,
                     match app.e2e_update_status() {
                         E2EStepStatus::Pending => "Pending",
                         E2EStepStatus::Running => "Running...",
@@ -312,6 +329,7 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
                 )
             }
             E2ETab::Remove => {
+                let checkbox = if app.e2e_remove_enabled() { "[✓]" } else { "[ ]" };
                 let status_icon = match app.e2e_remove_status() {
                     E2EStepStatus::Pending => "⏸",
                     E2EStepStatus::Running => "▶",
@@ -319,8 +337,9 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
                     E2EStepStatus::Skipped => "⊘",
                 };
                 format!(
-                    "{} Remove Step\n\nThis step will uninstall the software.\n\nStatus: {}",
+                    "{} Remove Step\n\n{} Enabled\n\nThis step will uninstall the software.\n\nStatus: {}\n\nPress Space to toggle this step.",
                     status_icon,
+                    checkbox,
                     match app.e2e_remove_status() {
                         E2EStepStatus::Pending => "Pending",
                         E2EStepStatus::Running => "Running...",
@@ -333,14 +352,40 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
                 if app.e2e_executing() {
                     "Execution in progress...\n\nCheck the logs below for real-time progress.".to_string()
                 } else {
-                    "Ready to Execute\n\nPress Enter to start the E2E test.\n\nThe test will run:\n1. Install\n2. Update\n3. Remove\n\nLogs will appear below in real-time.".to_string()
+                    let mut steps = Vec::new();
+                    if app.e2e_install_enabled() {
+                        steps.push("1. Install");
+                    }
+                    if app.e2e_update_enabled() {
+                        steps.push("2. Update");
+                    }
+                    if app.e2e_remove_enabled() {
+                        steps.push("3. Remove");
+                    }
+
+                    if steps.is_empty() {
+                        "No steps selected!\n\nPlease enable at least one step before executing.\n\nNavigate to Install, Update, or Remove tabs and press Space to enable them.".to_string()
+                    } else {
+                        format!(
+                            "Ready to Execute\n\nPress Enter to start the E2E test.\n\nThe test will run:\n{}\n\nLogs will appear below in real-time.",
+                            steps.join("\n")
+                        )
+                    }
                 }
             }
         };
 
         let content_widget = Paragraph::new(content)
             .block(Block::default().title("Step Details").borders(Borders::ALL));
-        frame.render_widget(content_widget, chunks[2]);
+        frame.render_widget(content_widget, content_chunks[0]);
+
+        // Render logs if executing
+        if app.e2e_executing() {
+            let log_text = render_task_logs(app);
+            let log_widget = Paragraph::new(log_text)
+                .block(Block::default().title("Live Logs").borders(Borders::ALL));
+            frame.render_widget(log_widget, content_chunks[1]);
+        }
     }
 
     // Instructions
@@ -349,9 +394,9 @@ fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
     } else if app.e2e_executing() {
         "t toggle task view • Esc/m menu • q quit".to_string()
     } else {
-        "←/→ or Tab navigate tabs • Enter execute (on Execute tab) • Esc/m menu • q quit".to_string()
+        "←/→ or Tab navigate tabs • Space toggle step • Enter execute • Esc/m menu • q quit".to_string()
     };
     let instructions = Paragraph::new(instructions_text)
         .block(Block::default().title("Controls").borders(Borders::ALL));
-    frame.render_widget(instructions, chunks[3]);
+    frame.render_widget(instructions, main_chunks[3]);
 }
