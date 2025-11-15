@@ -391,9 +391,9 @@ impl App {
             format!("{} selections", ids.len())
         };
         let result = match action {
-            ActionKind::Install => self.manager.install_many(&ids),
-            ActionKind::Update => self.manager.update_many(&ids),
-            ActionKind::Uninstall => self.manager.uninstall_many(&ids),
+            ActionKind::Install => self.manager.install_many(&ids, None),
+            ActionKind::Update => self.manager.update_many(&ids, None),
+            ActionKind::Uninstall => self.manager.uninstall_many(&ids, None),
             ActionKind::Test => Ok(Vec::new()),
         };
         match result {
@@ -578,62 +578,70 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                     dry_run,
                 } => {
                     let manager = SoftwareManager::with_flags(dry_run, force);
-                    let mut messages = vec![format!("{} (task #{})", request.label, request.id)];
+                    let mut plan_messages = vec![format!("{} (task #{})", request.label, request.id)];
                     match manager.plan(&template.software, action) {
                         Ok(plan) => {
-                            messages.push(format!("Plan includes {} steps", plan.len()));
+                            plan_messages.push(format!("Plan includes {} steps", plan.len()));
                             for (idx, id) in plan.iter().take(MAX_TASK_LOG_LINES).enumerate() {
-                                messages.push(format!("  {:>2}. {}", idx + 1, id.name()));
+                                plan_messages.push(format!("  {:>2}. {}", idx + 1, id.name()));
                             }
                             if plan.len() > MAX_TASK_LOG_LINES {
-                                messages.push("  ...".into());
+                                plan_messages.push("  ...".into());
                             }
+
+                            // Send plan immediately
+                            send_event(&event_tx, request.id, &request.label, plan_messages, None);
+
                             if dry_run {
-                                messages.push("Dry run complete.".into());
-                                send_event(&event_tx, request.id, &request.label, messages, None);
+                                send_event(&event_tx, request.id, &request.label, vec!["Dry run complete.".into(), "done".into()], None);
                                 continue;
                             }
+
+                            // Execute with progress callback
+                            let event_tx_clone = event_tx.clone();
+                            let request_id = request.id;
+                            let request_label = request.label.clone();
+                            let mut callback = |event: &ExecutionEvent| {
+                                send_event(
+                                    &event_tx_clone,
+                                    request_id,
+                                    &request_label,
+                                    vec![event.summary()],
+                                    None,
+                                );
+                            };
+
                             let exec_result = match action {
-                                ActionKind::Install => manager.install_many(&template.software),
-                                ActionKind::Update => manager.update_many(&template.software),
-                                ActionKind::Uninstall => manager.uninstall_many(&template.software),
+                                ActionKind::Install => manager.install_many(&template.software, Some(&mut callback)),
+                                ActionKind::Update => manager.update_many(&template.software, Some(&mut callback)),
+                                ActionKind::Uninstall => manager.uninstall_many(&template.software, Some(&mut callback)),
                                 ActionKind::Test => Ok(Vec::new()),
                             };
+
                             match exec_result {
-                                Ok(events) => {
-                                    for event in events.iter().take(MAX_TASK_LOG_LINES) {
-                                        messages.push(event.summary());
-                                    }
-                                    if events.len() > MAX_TASK_LOG_LINES {
-                                        messages.push("...".into());
-                                    }
+                                Ok(_events) => {
                                     let statuses = manager.status_all();
-                                    messages.push("done".into());
                                     send_event(
                                         &event_tx,
                                         request.id,
                                         &request.label,
-                                        messages,
+                                        vec!["done".into()],
                                         Some(statuses),
                                     );
                                 }
                                 Err(err) => {
-                                    messages.push(format!("Error: {}", err));
-                                    messages.push("done".into());
                                     send_event(
                                         &event_tx,
                                         request.id,
                                         &request.label,
-                                        messages,
+                                        vec![format!("Error: {}", err), "done".into()],
                                         None,
                                     );
                                 }
                             }
                         }
                         Err(err) => {
-                            messages.push(format!("Failed to plan: {}", err));
-                            messages.push("done".into());
-                            send_event(&event_tx, request.id, &request.label, messages, None);
+                            send_event(&event_tx, request.id, &request.label, vec![format!("Failed to plan: {}", err), "done".into()], None);
                         }
                     }
                 }

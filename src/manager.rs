@@ -271,27 +271,27 @@ impl SoftwareManager {
     }
 
     pub fn install(&self, id: SoftwareId) -> Result<Vec<ExecutionEvent>, ManagerError> {
-        self.run_for_ids(&[id], ActionKind::Install)
+        self.run_for_ids(&[id], ActionKind::Install, None)
     }
 
     pub fn update(&self, id: SoftwareId) -> Result<Vec<ExecutionEvent>, ManagerError> {
-        self.run_for_ids(&[id], ActionKind::Update)
+        self.run_for_ids(&[id], ActionKind::Update, None)
     }
 
     pub fn uninstall(&self, id: SoftwareId) -> Result<Vec<ExecutionEvent>, ManagerError> {
-        self.run_for_ids(&[id], ActionKind::Uninstall)
+        self.run_for_ids(&[id], ActionKind::Uninstall, None)
     }
 
-    pub fn install_many(&self, ids: &[SoftwareId]) -> Result<Vec<ExecutionEvent>, ManagerError> {
-        self.run_for_ids(ids, ActionKind::Install)
+    pub fn install_many(&self, ids: &[SoftwareId], on_progress: Option<&mut dyn FnMut(&ExecutionEvent)>) -> Result<Vec<ExecutionEvent>, ManagerError> {
+        self.run_for_ids(ids, ActionKind::Install, on_progress)
     }
 
-    pub fn update_many(&self, ids: &[SoftwareId]) -> Result<Vec<ExecutionEvent>, ManagerError> {
-        self.run_for_ids(ids, ActionKind::Update)
+    pub fn update_many(&self, ids: &[SoftwareId], on_progress: Option<&mut dyn FnMut(&ExecutionEvent)>) -> Result<Vec<ExecutionEvent>, ManagerError> {
+        self.run_for_ids(ids, ActionKind::Update, on_progress)
     }
 
-    pub fn uninstall_many(&self, ids: &[SoftwareId]) -> Result<Vec<ExecutionEvent>, ManagerError> {
-        self.run_for_ids(ids, ActionKind::Uninstall)
+    pub fn uninstall_many(&self, ids: &[SoftwareId], on_progress: Option<&mut dyn FnMut(&ExecutionEvent)>) -> Result<Vec<ExecutionEvent>, ManagerError> {
+        self.run_for_ids(ids, ActionKind::Uninstall, on_progress)
     }
 
     pub fn plan(
@@ -331,6 +331,7 @@ impl SoftwareManager {
         &self,
         ids: &[SoftwareId],
         action: ActionKind,
+        mut on_progress: Option<&mut dyn FnMut(&ExecutionEvent)>,
     ) -> Result<Vec<ExecutionEvent>, ManagerError> {
         let mut order = self.resolve_order(ids)?;
         if matches!(action, ActionKind::Uninstall) {
@@ -346,7 +347,7 @@ impl SoftwareManager {
             {
                 if let Ok(report) = adapter.status(&exec) {
                     if matches!(report.state, StatusState::Installed { .. }) {
-                        events.push(ExecutionEvent {
+                        let event = ExecutionEvent {
                             id,
                             action,
                             command: None,
@@ -355,7 +356,11 @@ impl SoftwareManager {
                                 "Already installed; run install --force to reinstall.".into(),
                             ),
                             skipped: true,
-                        });
+                        };
+                        if let Some(ref mut callback) = on_progress {
+                            callback(&event);
+                        }
+                        events.push(event);
                         continue;
                     }
                 }
@@ -368,6 +373,9 @@ impl SoftwareManager {
             };
             if !self.dry_run && !event.skipped {
                 self.log_history(action, &event);
+            }
+            if let Some(ref mut callback) = on_progress {
+                callback(&event);
             }
             events.push(event);
         }

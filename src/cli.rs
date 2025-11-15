@@ -228,10 +228,10 @@ fn run_onboard_flow(action: ActionKind, args: OnboardFlowArgs) -> Result<(), Box
 
     println!();
     let events = match action {
-        ActionKind::Install => manager.install_many(&template.software)?,
-        ActionKind::Update => manager.update_many(&template.software)?,
-        ActionKind::Uninstall => manager.uninstall_many(&template.software)?,
-        ActionKind::Test => manager.install_many(&template.software)?,
+        ActionKind::Install => manager.install_many(&template.software, None)?,
+        ActionKind::Update => manager.update_many(&template.software, None)?,
+        ActionKind::Uninstall => manager.uninstall_many(&template.software, None)?,
+        ActionKind::Test => manager.install_many(&template.software, None)?,
     };
     render_events(&events);
     Ok(())
