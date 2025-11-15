@@ -173,6 +173,74 @@ impl CommandRecipe {
             CommandRecipe::Manual(note) => note,
         }
     }
+
+    pub fn default_label(&self) -> &'static str {
+        match self {
+            CommandRecipe::Shell(cmd) => infer_label(cmd),
+            CommandRecipe::Manual(_) => "manual",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct CommandSource {
+    pub label: &'static str,
+    pub recipe: CommandRecipe,
+}
+
+impl CommandSource {
+    pub fn from_recipe(recipe: CommandRecipe) -> Self {
+        Self {
+            label: recipe.default_label(),
+            recipe,
+        }
+    }
+
+    pub const fn shell(label: &'static str, command: &'static str) -> Self {
+        Self {
+            label,
+            recipe: CommandRecipe::Shell(command),
+        }
+    }
+
+    pub const fn manual(label: &'static str, note: &'static str) -> Self {
+        Self {
+            label,
+            recipe: CommandRecipe::Manual(note),
+        }
+    }
+}
+
+fn infer_label(cmd: &str) -> &'static str {
+    if cmd.contains("brew install --cask") {
+        "homebrew cask"
+    } else if cmd.starts_with("brew install") {
+        "homebrew formula"
+    } else if cmd.contains("brew upgrade --cask") {
+        "homebrew cask upgrade"
+    } else if cmd.starts_with("brew upgrade") {
+        "homebrew upgrade"
+    } else if cmd.starts_with("npm install -g") {
+        "npm global"
+    } else if cmd.starts_with("npm update -g") {
+        "npm global update"
+    } else if cmd.starts_with("cargo install") {
+        "cargo install"
+    } else if cmd.starts_with("cargo uninstall") {
+        "cargo uninstall"
+    } else if cmd.starts_with("curl --proto") || cmd.starts_with("curl -fsSL") {
+        "curl script"
+    } else if cmd.starts_with("xcode-select") {
+        "xcode-select"
+    } else if cmd.starts_with("rustup") {
+        "rustup"
+    } else if cmd.starts_with("go ") {
+        "go"
+    } else if cmd.starts_with("flutter") {
+        "flutter"
+    } else {
+        "shell"
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -204,6 +272,27 @@ impl SoftwareEntry {
             uninstall: id.uninstall_recipe(),
         }
     }
+
+    pub fn install_sources(&self) -> Vec<CommandSource> {
+        build_sources(self.install, self.id.extra_install_sources())
+    }
+
+    pub fn update_sources(&self) -> Vec<CommandSource> {
+        build_sources(self.update, self.id.extra_update_sources())
+    }
+
+    pub fn uninstall_sources(&self) -> Vec<CommandSource> {
+        build_sources(self.uninstall, self.id.extra_uninstall_sources())
+    }
+}
+
+fn build_sources(primary: CommandRecipe, extras: &'static [CommandRecipe]) -> Vec<CommandSource> {
+    let mut sources = Vec::with_capacity(1 + extras.len());
+    sources.push(CommandSource::from_recipe(primary));
+    for recipe in extras {
+        sources.push(CommandSource::from_recipe(*recipe));
+    }
+    sources
 }
 
 impl SoftwareId {
@@ -766,6 +855,32 @@ impl SoftwareId {
             Self::QwenCli => CommandRecipe::Shell("npm uninstall -g qwen-cli"),
             Self::OpencodeCli => CommandRecipe::Shell("npm uninstall -g opencode-cli"),
         }
+    }
+
+    pub fn extra_install_sources(&self) -> &'static [CommandRecipe] {
+        match self {
+            Self::AndroidStudio => &[CommandRecipe::Manual(
+                "Download Android Studio dmg from developer.android.com and move it to /Applications.",
+            )],
+            Self::VisualStudioCode => &[CommandRecipe::Manual(
+                "Download VS Code from code.visualstudio.com and drag it into /Applications.",
+            )],
+            Self::Cursor => &[CommandRecipe::Manual(
+                "Download Cursor from cursor.sh and drag it into /Applications.",
+            )],
+            Self::Flutter => &[CommandRecipe::Manual(
+                "Download Flutter SDK archive from flutter.dev/docs/get-started/install and add it manually.",
+            )],
+            _ => &[],
+        }
+    }
+
+    pub fn extra_update_sources(&self) -> &'static [CommandRecipe] {
+        &[]
+    }
+
+    pub fn extra_uninstall_sources(&self) -> &'static [CommandRecipe] {
+        &[]
     }
 }
 

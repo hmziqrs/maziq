@@ -3,7 +3,7 @@ use std::error::Error;
 use clap::{Args, Parser, Subcommand};
 
 use crate::{
-    catalog::{self, SoftwareEntry, SoftwareId},
+    catalog::{self, CommandSource, SoftwareEntry, SoftwareId},
     manager::{ActionKind, ExecutionEvent, SoftwareManager, StatusReport, StatusState},
     templates,
 };
@@ -283,9 +283,20 @@ fn print_entry(entry: &SoftwareEntry) {
         );
     }
     println!("Version check: {}", entry.version_probe.description());
-    println!("Install: {}", entry.install.description());
-    println!("Update: {}", entry.update.description());
-    println!("Uninstall: {}", entry.uninstall.description());
+    print_sources("Install", entry.install_sources());
+    print_sources("Update", entry.update_sources());
+    print_sources("Uninstall", entry.uninstall_sources());
+}
+
+fn print_sources(title: &str, sources: Vec<CommandSource>) {
+    if sources.is_empty() {
+        println!("{title}: none");
+        return;
+    }
+    println!("{title} sources:");
+    for source in sources {
+        println!("  - {} -> {}", source.label, source.recipe.description());
+    }
 }
 
 fn render_events(events: &[ExecutionEvent]) {

@@ -5,7 +5,10 @@ use std::{
     process::{Command, Output, Stdio},
 };
 
-use crate::catalog::{self, CommandRecipe, SoftwareEntry, SoftwareId, VersionProbe};
+use crate::{
+    catalog::{self, CommandRecipe, CommandSource, SoftwareEntry, SoftwareId, VersionProbe},
+    history,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ActionKind {
@@ -31,6 +34,7 @@ pub struct ExecutionEvent {
     pub id: SoftwareId,
     pub action: ActionKind,
     pub command: Option<String>,
+    pub source: Option<String>,
     pub note: Option<String>,
     pub skipped: bool,
 }
@@ -42,15 +46,19 @@ impl ExecutionEvent {
             format!("{prefix}: {note}")
         } else if let Some(cmd) = &self.command {
             if self.skipped {
-                format!("{prefix}: dry-run -> {cmd}")
+                format!("{prefix}: dry-run via {} -> {cmd}", self.source_label())
             } else {
-                format!("{prefix}: {cmd}")
+                format!("{prefix}: {} -> {cmd}", self.source_label())
             }
         } else if self.skipped {
             format!("{prefix}: skipped")
         } else {
             format!("{prefix}: completed")
         }
+    }
+
+    fn source_label(&self) -> String {
+        self.source.clone().unwrap_or_else(|| "source".into())
     }
 }
 
@@ -122,6 +130,7 @@ pub trait SoftwareAdapter {
             id: self.id(),
             action: ActionKind::Test,
             command: None,
+            source: None,
             note: Some("Test command not implemented".into()),
             skipped: true,
         })
@@ -137,41 +146,71 @@ impl CatalogAdapter {
         Self { entry }
     }
 
-    fn run_recipe(
+    fn run_sources(
         &self,
         exec: &CommandExecutor,
         action: ActionKind,
-        recipe: &CommandRecipe,
+        sources: Vec<CommandSource>,
     ) -> Result<ExecutionEvent, ManagerError> {
-        match recipe {
-            CommandRecipe::Shell(cmd) => {
-                if self.entry.kind == catalog::SoftwareKind::GuiApplication
-                    && !(cmd.starts_with("brew install --cask")
-                        || cmd.starts_with("brew upgrade --cask")
-                        || cmd.starts_with("brew uninstall --cask"))
-                {
-                    return Err(ManagerError::UnsafeGuiCommand {
-                        id: self.entry.id,
-                        command: cmd,
-                    });
-                }
-                exec.run_shell(cmd)?;
-                Ok(ExecutionEvent {
-                    id: self.entry.id,
-                    action,
-                    command: Some((*cmd).to_string()),
-                    note: None,
-                    skipped: exec.dry_run(),
-                })
-            }
-            CommandRecipe::Manual(note) => Ok(ExecutionEvent {
+        if sources.is_empty() {
+            return Ok(ExecutionEvent {
                 id: self.entry.id,
                 action,
                 command: None,
-                note: Some((*note).to_string()),
+                source: Some("manual".into()),
+                note: Some("No automated steps defined.".into()),
                 skipped: true,
-            }),
+            });
         }
+
+        let mut last_error: Option<ManagerError> = None;
+        for source in sources {
+            match source.recipe {
+                CommandRecipe::Shell(cmd) => {
+                    if self.entry.kind == catalog::SoftwareKind::GuiApplication
+                        && !(cmd.starts_with("brew install --cask")
+                            || cmd.starts_with("brew upgrade --cask")
+                            || cmd.starts_with("brew uninstall --cask"))
+                    {
+                        return Err(ManagerError::UnsafeGuiCommand {
+                            id: self.entry.id,
+                            command: cmd,
+                        });
+                    }
+                    match exec.run_shell(cmd) {
+                        Ok(_) => {
+                            return Ok(ExecutionEvent {
+                                id: self.entry.id,
+                                action,
+                                command: Some(cmd.to_string()),
+                                source: Some(source.label.to_string()),
+                                note: None,
+                                skipped: exec.dry_run(),
+                            });
+                        }
+                        Err(err @ ManagerError::UnsafeGuiCommand { .. }) => return Err(err),
+                        Err(err) => {
+                            last_error = Some(err);
+                            continue;
+                        }
+                    }
+                }
+                CommandRecipe::Manual(note) => {
+                    return Ok(ExecutionEvent {
+                        id: self.entry.id,
+                        action,
+                        command: None,
+                        source: Some(source.label.to_string()),
+                        note: Some(note.to_string()),
+                        skipped: true,
+                    });
+                }
+            }
+        }
+        Err(last_error.unwrap_or_else(|| ManagerError::CommandFailed {
+            command: "all sources".into(),
+            stderr: "All command sources failed".into(),
+        }))
     }
 }
 
@@ -181,15 +220,15 @@ impl SoftwareAdapter for CatalogAdapter {
     }
 
     fn install(&self, exec: &CommandExecutor) -> Result<ExecutionEvent, ManagerError> {
-        self.run_recipe(exec, ActionKind::Install, &self.entry.install)
+        self.run_sources(exec, ActionKind::Install, self.entry.install_sources())
     }
 
     fn update(&self, exec: &CommandExecutor) -> Result<ExecutionEvent, ManagerError> {
-        self.run_recipe(exec, ActionKind::Update, &self.entry.update)
+        self.run_sources(exec, ActionKind::Update, self.entry.update_sources())
     }
 
     fn uninstall(&self, exec: &CommandExecutor) -> Result<ExecutionEvent, ManagerError> {
-        self.run_recipe(exec, ActionKind::Uninstall, &self.entry.uninstall)
+        self.run_sources(exec, ActionKind::Uninstall, self.entry.uninstall_sources())
     }
 
     fn status(&self, exec: &CommandExecutor) -> Result<StatusReport, ManagerError> {
@@ -304,6 +343,7 @@ impl SoftwareManager {
                             id,
                             action,
                             command: None,
+                            source: None,
                             note: Some(
                                 "Already installed; run install --force to reinstall.".into(),
                             ),
@@ -319,9 +359,26 @@ impl SoftwareManager {
                 ActionKind::Uninstall => adapter.uninstall(&exec)?,
                 ActionKind::Test => adapter.test(&exec)?,
             };
+            if !self.dry_run && !event.skipped {
+                self.log_history(action, &event);
+            }
             events.push(event);
         }
         Ok(events)
+    }
+
+    fn log_history(&self, action: ActionKind, event: &ExecutionEvent) {
+        let version = self
+            .status(event.id)
+            .ok()
+            .and_then(|report| match report.state {
+                StatusState::Installed { version } => version,
+                _ => None,
+            });
+        let record = history::HistoryRecord::new(event.id, action, version, event.source.clone());
+        if let Err(err) = history::append(&record) {
+            eprintln!("Failed to write history for {}: {err}", event.id.name());
+        }
     }
 
     fn resolve_order(&self, roots: &[SoftwareId]) -> Result<Vec<SoftwareId>, ManagerError> {
