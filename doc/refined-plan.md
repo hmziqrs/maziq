@@ -29,6 +29,7 @@ _Phase 1 – Core CLI & structure_
 - [x] Scaffold the CLI binary with subcommands: `software`, `onboard`, `config`, `versions`.
 - [x] Define a data model for software entries (id, display name, GUI/CLI, version command, install/update/uninstall strategy, dependencies, Homebrew cask/formula name).
 - [x] Implement loading of software templates/configs, including a default `hmziq` template.
+ - [x] Keep an interactive Ratatui-based TUI as the default mode when no subcommand is provided, so users get a near-GUI experience with live feedback while installs run.
 
 _Phase 2 – Software manager engine_
 - [x] Implement a per-software adapter trait (install, update, uninstall, status, test).

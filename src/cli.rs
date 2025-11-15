@@ -10,13 +10,13 @@ use crate::{
 
 #[derive(Parser, Debug)]
 #[command(name = "maziq", about = "CLI for managing macOS development setups.")]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    pub command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+pub enum Commands {
     /// Inspect software definitions and actions.
     #[command(subcommand)]
     Software(SoftwareCommand),
@@ -31,7 +31,7 @@ enum Commands {
 }
 
 #[derive(Subcommand, Debug)]
-enum SoftwareCommand {
+pub enum SoftwareCommand {
     /// List all known software entries.
     List,
     /// Show detail for a specific software id (use the key, e.g. `rustup`).
@@ -47,7 +47,7 @@ enum SoftwareCommand {
 }
 
 #[derive(Args, Debug)]
-struct SoftwareActionArgs {
+pub struct SoftwareActionArgs {
     /// Software id (see `maziq software list` for options).
     id: String,
     /// Preview actions without modifying the system.
@@ -56,7 +56,7 @@ struct SoftwareActionArgs {
 }
 
 #[derive(Subcommand, Debug)]
-enum OnboardCommand {
+pub enum OnboardCommand {
     /// Install every item defined in a template.
     Fresh(OnboardFlowArgs),
     /// Update every item defined in a template.
@@ -66,7 +66,7 @@ enum OnboardCommand {
 }
 
 #[derive(Args, Debug)]
-struct OnboardFlowArgs {
+pub struct OnboardFlowArgs {
     /// Template slug or name (defaults to hmziq).
     #[arg(short, long, default_value = "hmziq")]
     template: String,
@@ -76,7 +76,7 @@ struct OnboardFlowArgs {
 }
 
 #[derive(Subcommand, Debug)]
-enum ConfigCommand {
+pub enum ConfigCommand {
     /// List configuration profiles shipped with MazIQ.
     List,
     /// Apply a configuration profile (experimental).
@@ -89,9 +89,12 @@ enum ConfigCommand {
     },
 }
 
-pub fn run() -> Result<(), Box<dyn Error>> {
-    let cli = Cli::parse();
-    match cli.command {
+pub fn parse() -> Cli {
+    Cli::parse()
+}
+
+pub fn run(command: Commands) -> Result<(), Box<dyn Error>> {
+    match command {
         Commands::Software(cmd) => handle_software(cmd)?,
         Commands::Onboard(cmd) => handle_onboard(cmd)?,
         Commands::Config(cmd) => handle_config(cmd)?,
