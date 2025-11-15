@@ -1,23 +1,20 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use ratatui::widgets::ListState;
 
 use crate::{
     catalog::{self, SoftwareHandle, SoftwareId},
-    operations, persistence,
+    manager::{ActionKind, ExecutionEvent, SoftwareManager, StatusState},
 };
 
-#[derive(Clone, Default)]
-pub struct SoftwareStatus {
-    pub installed: bool,
-    pub error: Option<String>,
-}
+const MAX_LOG_ENTRIES: usize = 6;
 
 pub struct App {
     handles: Vec<SoftwareHandle>,
     state: ListState,
-    statuses: HashMap<SoftwareId, SoftwareStatus>,
-    progress: HashSet<String>,
+    statuses: HashMap<SoftwareId, StatusState>,
+    manager: SoftwareManager,
+    log: Vec<String>,
     pub message: String,
     pub quit: bool,
 }
@@ -25,7 +22,6 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         let handles = catalog::flattened_handles();
-        let progress = persistence::load_progress();
         let mut state = ListState::default();
         if !handles.is_empty() {
             state.select(Some(0));
@@ -35,8 +31,9 @@ impl App {
             handles,
             state,
             statuses: HashMap::new(),
-            progress,
-            message: "Select software and press Enter to install.".into(),
+            manager: SoftwareManager::new(),
+            log: Vec::new(),
+            message: "Select software and use Enter/U/X to install/update/uninstall.".into(),
             quit: false,
         };
         app.refresh_statuses();
@@ -55,8 +52,15 @@ impl App {
         &self.message
     }
 
-    pub fn status_for(&self, id: SoftwareId) -> SoftwareStatus {
-        self.statuses.get(&id).cloned().unwrap_or_default()
+    pub fn log(&self) -> &[String] {
+        &self.log
+    }
+
+    pub fn status_for(&self, id: SoftwareId) -> StatusState {
+        self.statuses
+            .get(&id)
+            .cloned()
+            .unwrap_or(StatusState::NotInstalled)
     }
 
     pub fn next(&mut self) {
@@ -82,59 +86,34 @@ impl App {
     }
 
     pub fn install_selected(&mut self) {
-        if let Some(index) = self.state.selected() {
-            let handle = self.handles[index];
-            let status = self.status_for(handle.id);
-            if status.installed {
-                self.message = format!("{} is already installed.", handle.id.name());
-                return;
-            }
-            self.message = format!("Installing {}...", handle.id.name());
-            match operations::install(handle.id) {
-                Ok(_) => {
-                    self.mark_installed(handle.id);
-                    self.message = format!("{} installed successfully.", handle.id.name());
-                }
-                Err(err) => {
-                    self.statuses.insert(
-                        handle.id,
-                        SoftwareStatus {
-                            installed: false,
-                            error: Some(err.to_string()),
-                        },
-                    );
-                    self.message = format!("Failed to install {}: {}", handle.id.name(), err);
-                }
-            }
-        }
+        self.run_on_selected(ActionKind::Install);
+    }
+
+    pub fn update_selected(&mut self) {
+        self.run_on_selected(ActionKind::Update);
+    }
+
+    pub fn uninstall_selected(&mut self) {
+        self.run_on_selected(ActionKind::Uninstall);
     }
 
     pub fn install_all_missing(&mut self) {
-        self.message = "Installing all missing software...".into();
-        let handles_snapshot = self.handles.clone();
-        for handle in handles_snapshot {
-            let status = self.status_for(handle.id);
-            if status.installed {
-                continue;
-            }
-            match operations::install(handle.id) {
-                Ok(_) => self.mark_installed(handle.id),
-                Err(err) => {
-                    self.statuses.insert(
-                        handle.id,
-                        SoftwareStatus {
-                            installed: false,
-                            error: Some(err.to_string()),
-                        },
-                    );
-                    self.message = format!(
-                        "Paused on {} due to error (see list). Continue later.",
-                        handle.id.name()
-                    );
-                }
-            }
+        let targets: Vec<_> = self
+            .handles
+            .iter()
+            .filter_map(|handle| match self.status_for(handle.id) {
+                StatusState::NotInstalled
+                | StatusState::ManualCheck(_)
+                | StatusState::Unknown(_) => Some(handle.id),
+                _ => None,
+            })
+            .collect();
+        if targets.is_empty() {
+            self.message = "All software appears installed.".into();
+            return;
         }
-        self.message = "Batch installation complete. Review statuses.".into();
+        self.message = format!("Installing {} items...", targets.len());
+        self.run_action(ActionKind::Install, targets);
     }
 
     pub fn refresh_statuses_with_feedback(&mut self) {
@@ -144,33 +123,71 @@ impl App {
 
     pub fn refresh_statuses(&mut self) {
         for handle in &self.handles {
-            let installed =
-                operations::check_installed(handle.id) || self.progress.contains(handle.id.key());
-            self.statuses.insert(
-                handle.id,
-                SoftwareStatus {
-                    installed,
-                    error: None,
-                },
-            );
+            let status = self
+                .manager
+                .status(handle.id)
+                .map(|report| report.state)
+                .unwrap_or_else(|err| StatusState::Unknown(err.to_string()));
+            self.statuses.insert(handle.id, status);
         }
     }
 
-    fn mark_installed(&mut self, id: SoftwareId) {
-        self.statuses.insert(
-            id,
-            SoftwareStatus {
-                installed: true,
-                error: None,
-            },
-        );
-        self.progress.insert(id.key().to_string());
-        if let Err(err) = persistence::save_progress(&self.progress) {
-            self.message = format!(
-                "{} installed, but failed to write progress: {}",
-                id.name(),
-                err
-            );
+    fn run_on_selected(&mut self, action: ActionKind) {
+        if let Some(index) = self.state.selected() {
+            let id = self.handles[index].id;
+            self.run_action(action, vec![id]);
+        }
+    }
+
+    fn run_action(&mut self, action: ActionKind, ids: Vec<SoftwareId>) {
+        if ids.is_empty() {
+            return;
+        }
+        let label = if ids.len() == 1 {
+            catalog::entry(ids[0]).display_name.to_string()
+        } else {
+            format!("{} selections", ids.len())
+        };
+        let result = match action {
+            ActionKind::Install => self.manager.install_many(&ids),
+            ActionKind::Update => self.manager.update_many(&ids),
+            ActionKind::Uninstall => self.manager.uninstall_many(&ids),
+            ActionKind::Test => Ok(Vec::new()),
+        };
+        match result {
+            Ok(events) => {
+                if events.is_empty() {
+                    self.message = format!("No actions performed for {label}.");
+                } else {
+                    self.message = format!(
+                        "{} complete for {} ({} event{})",
+                        action.label(),
+                        label,
+                        events.len(),
+                        if events.len() == 1 { "" } else { "s" }
+                    );
+                    self.append_log(&events);
+                }
+                self.refresh_statuses();
+            }
+            Err(err) => {
+                self.message = format!("{} failed for {}: {}", action.label(), label, err);
+                self.push_log_line(format!("error: {}", err));
+            }
+        }
+    }
+
+    fn append_log(&mut self, events: &[ExecutionEvent]) {
+        for event in events {
+            self.push_log_line(event.summary());
+        }
+    }
+
+    fn push_log_line(&mut self, line: String) {
+        self.log.push(line);
+        if self.log.len() > MAX_LOG_ENTRIES {
+            let excess = self.log.len() - MAX_LOG_ENTRIES;
+            self.log.drain(0..excess);
         }
     }
 }

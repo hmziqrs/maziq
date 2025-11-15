@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
 
-use crate::app::App;
+use crate::{app::App, manager::StatusState};
 
 pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     let chunks = Layout::default()
@@ -18,18 +18,31 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
         .handles()
         .iter()
         .map(|handle| {
-            let status = app.status_for(handle.id);
-            let status_text = if status.installed {
-                Span::styled("✅ Installed", Style::default().fg(Color::Green))
-            } else {
-                Span::styled("❌ Missing", Style::default().fg(Color::Red))
+            let state = app.status_for(handle.id);
+            let (status_text, detail_span, status_color) = match state.clone() {
+                StatusState::Installed { version } => {
+                    let text = version.unwrap_or_else(|| "Installed".into());
+                    (format!("✅ {text}"), None, Color::Green)
+                }
+                StatusState::NotInstalled => ("❌ Missing".into(), None, Color::Red),
+                StatusState::ManualCheck(note) => (
+                    "⚠ Manual".into(),
+                    Some(Span::styled(
+                        format!(" ({note})"),
+                        Style::default().fg(Color::Yellow),
+                    )),
+                    Color::Yellow,
+                ),
+                StatusState::Unknown(note) => (
+                    "?? Unknown".into(),
+                    Some(Span::styled(
+                        format!(" ({note})"),
+                        Style::default().fg(Color::LightRed),
+                    )),
+                    Color::Magenta,
+                ),
             };
-            let error_span = status.error.as_ref().map(|err| {
-                Span::styled(
-                    format!(" (Error: {err})"),
-                    Style::default().fg(Color::LightRed),
-                )
-            });
+            let status_span = Span::styled(status_text, Style::default().fg(status_color));
 
             let mut line = vec![
                 Span::styled(
@@ -45,12 +58,12 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
                         .add_modifier(Modifier::BOLD),
                 ),
                 Span::raw(" - "),
-                status_text,
+                status_span,
                 Span::raw(" • "),
                 Span::styled(handle.id.summary(), Style::default().fg(Color::Gray)),
             ];
-            if let Some(err) = error_span {
-                line.push(err);
+            if let Some(detail) = detail_span {
+                line.push(detail);
             }
             ListItem::new(Line::from(line))
         })
@@ -74,16 +87,29 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
 
     let lower = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(5), Constraint::Min(0)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(4),
+            Constraint::Length(4),
+        ])
         .split(chunks[1]);
 
     let message =
         Paragraph::new(app.message()).block(Block::default().title("Status").borders(Borders::ALL));
     frame.render_widget(message, lower[0]);
 
+    let log_text = if app.log().is_empty() {
+        "No actions executed yet.".to_string()
+    } else {
+        app.log().join("\n")
+    };
+    let log =
+        Paragraph::new(log_text).block(Block::default().title("Action log").borders(Borders::ALL));
+    frame.render_widget(log, lower[1]);
+
     let controls = Paragraph::new(
-        "Controls: ↑/↓ or j/k navigate • Enter installs selection • a installs all missing • r refreshes statuses • q quits",
+        "Controls: ↑/↓ or j/k select • Enter=install • u=update • x=uninstall • a=install missing • r=refresh statuses • q=quit",
     )
     .block(Block::default().title("Controls").borders(Borders::ALL));
-    frame.render_widget(controls, lower[1]);
+    frame.render_widget(controls, lower[2]);
 }

@@ -20,8 +20,6 @@ mod app;
 mod catalog;
 mod cli;
 mod manager;
-mod operations;
-mod persistence;
 mod templates;
 mod tui;
 
@@ -81,6 +79,8 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
                     KeyCode::Down | KeyCode::Char('j') => app.next(),
                     KeyCode::Up | KeyCode::Char('k') => app.previous(),
                     KeyCode::Enter | KeyCode::Char(' ') => app.install_selected(),
+                    KeyCode::Char('u') => app.update_selected(),
+                    KeyCode::Char('x') => app.uninstall_selected(),
                     KeyCode::Char('a') => app.install_all_missing(),
                     KeyCode::Char('r') => app.refresh_statuses_with_feedback(),
                     _ => {}
