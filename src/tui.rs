@@ -163,18 +163,39 @@ fn draw_software(frame: &mut Frame<'_>, app: &mut App) {
         Paragraph::new(app.message()).block(Block::default().title("Status").borders(Borders::ALL));
     frame.render_widget(message, lower[0]);
 
-    let log_text = if app.log().is_empty() {
+    let log_text = if app.show_tasks() {
+        render_task_logs(app)
+    } else if app.log().is_empty() {
         "No actions executed yet.".to_string()
     } else {
         app.log().join("\n")
     };
+    let log_title = if app.show_tasks() {
+        "Tasks"
+    } else {
+        "Action log"
+    };
     let log =
-        Paragraph::new(log_text).block(Block::default().title("Action log").borders(Borders::ALL));
+        Paragraph::new(log_text).block(Block::default().title(log_title).borders(Borders::ALL));
     frame.render_widget(log, lower[1]);
 
     let controls = Paragraph::new(
-        "Controls: ↑/↓ or j/k select • Enter install • u update • x uninstall • a install missing • r refresh • m/Esc menu • q quit",
+        "Controls: ↑/↓ or j/k select • Enter install • u update • x uninstall • a install missing • r refresh • t toggle log • m/Esc menu • q quit",
     )
     .block(Block::default().title("Controls").borders(Borders::ALL));
     frame.render_widget(controls, lower[2]);
+}
+
+fn render_task_logs(app: &App) -> String {
+    if app.task_logs().is_empty() {
+        return "No tasks queued.".into();
+    }
+    let mut lines = Vec::new();
+    for task in app.task_logs() {
+        lines.push(format!("#{} {}", task.id, task.label));
+        for line in &task.lines {
+            lines.push(format!("  {}", line));
+        }
+    }
+    lines.join("\n")
 }
