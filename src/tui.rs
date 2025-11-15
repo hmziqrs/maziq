@@ -57,7 +57,7 @@ fn draw_menu(frame: &mut Frame<'_>, app: &mut App) {
     frame.render_stateful_widget(list, chunks[0], app.menu_state_mut());
 
     let instructions = Paragraph::new(
-        "Enter selects • ↑/↓ or j/k navigate • r refresh statuses • Esc/m return to menu • q quit",
+        "Enter or 1-5 selects • ↑/↓ or j/k navigate • r refresh statuses • Esc/m stay here • q quit",
     )
     .block(
         Block::default()
