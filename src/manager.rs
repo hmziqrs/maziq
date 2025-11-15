@@ -37,6 +37,7 @@ pub struct ExecutionEvent {
     pub source: Option<String>,
     pub note: Option<String>,
     pub skipped: bool,
+    pub output: Option<String>,
 }
 
 impl ExecutionEvent {
@@ -133,6 +134,7 @@ pub trait SoftwareAdapter {
             source: None,
             note: Some("Test command not implemented".into()),
             skipped: true,
+            output: None,
         })
     }
 }
@@ -160,6 +162,7 @@ impl CatalogAdapter {
                 source: Some("manual".into()),
                 note: Some("No automated steps defined.".into()),
                 skipped: true,
+                output: None,
             });
         }
 
@@ -178,7 +181,7 @@ impl CatalogAdapter {
                         });
                     }
                     match exec.run_shell(cmd) {
-                        Ok(_) => {
+                        Ok(output) => {
                             return Ok(ExecutionEvent {
                                 id: self.entry.id,
                                 action,
@@ -186,6 +189,7 @@ impl CatalogAdapter {
                                 source: Some(source.label.to_string()),
                                 note: None,
                                 skipped: exec.dry_run(),
+                                output: if output.is_empty() { None } else { Some(output) },
                             });
                         }
                         Err(err @ ManagerError::UnsafeGuiCommand { .. }) => return Err(err),
@@ -203,6 +207,7 @@ impl CatalogAdapter {
                         source: Some(source.label.to_string()),
                         note: Some(note.to_string()),
                         skipped: true,
+                        output: None,
                     });
                 }
             }
@@ -356,6 +361,7 @@ impl SoftwareManager {
                                 "Already installed; run install --force to reinstall.".into(),
                             ),
                             skipped: true,
+                            output: None,
                         };
                         if let Some(ref mut callback) = on_progress {
                             callback(&event);
@@ -447,9 +453,9 @@ impl CommandExecutor {
         self.dry_run
     }
 
-    fn run_shell(&self, command: &str) -> Result<(), ManagerError> {
+    fn run_shell(&self, command: &str) -> Result<String, ManagerError> {
         if self.dry_run {
-            return Ok(());
+            return Ok(String::new());
         }
         let output = Command::new("sh")
             .arg("-c")
@@ -458,10 +464,20 @@ impl CommandExecutor {
             .stderr(Stdio::piped())
             .output()
             .map_err(ManagerError::Spawn)?;
-        if output.status.success() {
-            Ok(())
+
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let combined = if !stdout.is_empty() && !stderr.is_empty() {
+            format!("{}\n{}", stdout, stderr)
+        } else if !stdout.is_empty() {
+            stdout.clone()
         } else {
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            stderr.clone()
+        };
+
+        if output.status.success() {
+            Ok(combined)
+        } else {
             Err(ManagerError::CommandFailed {
                 command: command.to_string(),
                 stderr,
