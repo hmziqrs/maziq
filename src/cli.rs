@@ -89,10 +89,6 @@ pub enum ConfigCommand {
     },
 }
 
-pub fn parse() -> Cli {
-    Cli::parse()
-}
-
 pub fn run(command: Commands) -> Result<(), Box<dyn Error>> {
     match command {
         Commands::Software(cmd) => handle_software(cmd)?,
