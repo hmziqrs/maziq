@@ -192,20 +192,26 @@ impl App {
 
     pub fn activate_menu(&mut self) {
         if let Some(index) = self.menu_state.selected() {
-            if let Some(entry) = MENU_ENTRIES.get(index) {
-                match entry.action {
-                    MenuAction::OnboardFresh => self.run_template_flow(ActionKind::Install),
-                    MenuAction::OnboardUpdate => self.run_template_flow(ActionKind::Update),
-                    MenuAction::Config => self.show_config_preview(),
-                    MenuAction::SoftwareCatalog => {
-                        self.screen = Screen::Software;
-                        self.message =
-                            "Browse the catalog. Use Enter/u/x to install/update/uninstall.".into();
-                    }
-                    MenuAction::Versions => {
-                        self.refresh_statuses();
-                        self.message = "Versions refreshed via status probes.".into();
-                    }
+            self.activate_menu_index(index);
+        }
+    }
+
+    pub fn activate_menu_index(&mut self, index: usize) {
+        if let Some(entry) = MENU_ENTRIES.get(index) {
+            self.message = format!("Selected {}", entry.label);
+            self.push_log_line(format!("menu -> {}", entry.label));
+            match entry.action {
+                MenuAction::OnboardFresh => self.run_template_flow(ActionKind::Install),
+                MenuAction::OnboardUpdate => self.run_template_flow(ActionKind::Update),
+                MenuAction::Config => self.show_config_preview(),
+                MenuAction::SoftwareCatalog => {
+                    self.screen = Screen::Software;
+                    self.message =
+                        "Browse the catalog. Use Enter/u/x to install/update/uninstall.".into();
+                }
+                MenuAction::Versions => {
+                    self.refresh_statuses();
+                    self.message = "Versions refreshed via status probes.".into();
                 }
             }
         }

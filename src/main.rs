@@ -78,6 +78,13 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
                     KeyCode::Char('q') => app.quit = true,
                     KeyCode::Esc => app.enter_menu(),
                     KeyCode::Char('m') => app.enter_menu(),
+                    KeyCode::Char(digit @ '1'..='9') => {
+                        if matches!(app.screen(), app::Screen::Menu) {
+                            if let Some(index) = (digit as u8).checked_sub(b'1') {
+                                app.activate_menu_index(index as usize);
+                            }
+                        }
+                    }
                     KeyCode::Down | KeyCode::Char('j') => app.next(),
                     KeyCode::Up | KeyCode::Char('k') => app.previous(),
                     KeyCode::Enter | KeyCode::Char(' ') => match app.screen() {
