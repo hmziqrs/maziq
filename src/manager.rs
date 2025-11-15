@@ -180,11 +180,15 @@ impl SoftwareAdapter for CatalogAdapter {
 
 pub struct SoftwareManager {
     dry_run: bool,
+    force: bool,
 }
 
 impl Default for SoftwareManager {
     fn default() -> Self {
-        Self { dry_run: false }
+        Self {
+            dry_run: false,
+            force: false,
+        }
     }
 }
 
@@ -193,8 +197,8 @@ impl SoftwareManager {
         Self::default()
     }
 
-    pub fn with_dry_run(dry_run: bool) -> Self {
-        Self { dry_run }
+    pub fn with_flags(dry_run: bool, force: bool) -> Self {
+        Self { dry_run, force }
     }
 
     pub fn install(&self, id: SoftwareId) -> Result<Vec<ExecutionEvent>, ManagerError> {
@@ -267,6 +271,25 @@ impl SoftwareManager {
         let mut events = Vec::new();
         for id in order {
             let adapter = CatalogAdapter::new(catalog::entry(id));
+            if matches!(action, ActionKind::Install)
+                && !self.force
+                && adapter.entry.kind == catalog::SoftwareKind::GuiApplication
+            {
+                if let Ok(report) = adapter.status(&exec) {
+                    if matches!(report.state, StatusState::Installed { .. }) {
+                        events.push(ExecutionEvent {
+                            id,
+                            action,
+                            command: None,
+                            note: Some(
+                                "Already installed; run install --force to reinstall.".into(),
+                            ),
+                            skipped: true,
+                        });
+                        continue;
+                    }
+                }
+            }
             let event = match action {
                 ActionKind::Install => adapter.install(&exec)?,
                 ActionKind::Update => adapter.update(&exec)?,

@@ -41,8 +41,8 @@ _Phase 2 – Software manager engine_
 - [x] Implement a `versions` command (or similar) that prints all detected software versions in one run.
 
 _Phase 3 – GUI apps & Homebrew_
-- [ ] Implement respectful installation of GUI apps via Homebrew casks (e.g. `brew install --cask android-studio`).
-- [ ] Detect existing `.app` bundles via `mdls` / `mdfind` and offer skip/upgrade/reinstall, rather than overwriting silently.
+- [x] Implement respectful installation of GUI apps via Homebrew casks (e.g. `brew install --cask android-studio`).
+- [x] Detect existing `.app` bundles via `mdls` / `mdfind` and offer skip/upgrade/reinstall, rather than overwriting silently.
 - [ ] Ensure GUI adapters only manage application binaries (no user project/settings changes).
 
 _Phase 4 – Onboarding & configurator_

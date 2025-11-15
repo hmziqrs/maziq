@@ -53,6 +53,9 @@ pub struct SoftwareActionArgs {
     /// Preview actions without modifying the system.
     #[arg(long)]
     dry_run: bool,
+    /// Force action even if MazIQ detects the target is already installed.
+    #[arg(long)]
+    force: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -73,6 +76,9 @@ pub struct OnboardFlowArgs {
     /// Do not execute anything; show the plan instead.
     #[arg(long)]
     dry_run: bool,
+    /// Force reinstall/update even if targets appear installed.
+    #[arg(long)]
+    force: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -142,7 +148,7 @@ fn run_action_for_id(action: ActionKind, args: SoftwareActionArgs) -> Result<(),
         eprintln!("Unknown software id `{}`.", args.id);
         return Ok(());
     };
-    let manager = SoftwareManager::with_dry_run(args.dry_run);
+    let manager = SoftwareManager::with_flags(args.dry_run, args.force);
     let events = match action {
         ActionKind::Install => manager.install(id)?,
         ActionKind::Update => manager.update(id)?,
@@ -196,7 +202,7 @@ fn run_onboard_flow(action: ActionKind, args: OnboardFlowArgs) -> Result<(), Box
     if let Some(desc) = &template.description {
         println!("Description: {desc}");
     }
-    let manager = SoftwareManager::with_dry_run(args.dry_run);
+    let manager = SoftwareManager::with_flags(args.dry_run, args.force);
     let plan = manager.plan(&template.software, action)?;
     println!("\nExecution order:");
     for (index, id) in plan.iter().enumerate() {
