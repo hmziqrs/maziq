@@ -16,6 +16,7 @@ use crate::{
 const MAX_LOG_ENTRIES: usize = 6;
 const DEFAULT_TEMPLATE: &str = "hmziq";
 const MAX_TASK_LOG_LINES: usize = 5;
+const MAX_TASKS: usize = 4;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Screen {
@@ -67,12 +68,14 @@ const MENU_ENTRIES: &[MenuEntry] = &[
     },
 ];
 
+#[derive(Clone)]
 struct TaskRequest {
     id: u64,
     label: String,
     action: TaskAction,
 }
 
+#[derive(Clone)]
 enum TaskAction {
     TemplateFlow {
         action: ActionKind,
@@ -84,8 +87,17 @@ enum TaskAction {
 }
 
 struct TaskEvent {
+    id: u64,
+    label: String,
     messages: Vec<String>,
     statuses: Option<Vec<StatusReport>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TaskLog {
+    pub id: u64,
+    pub label: String,
+    pub lines: Vec<String>,
 }
 
 pub struct App {
@@ -100,6 +112,9 @@ pub struct App {
     event_receiver: Receiver<TaskEvent>,
     next_task_id: u64,
     menu_enabled: bool,
+    show_tasks: bool,
+    task_logs: Vec<TaskLog>,
+    initial_task: Option<u64>,
     pub message: String,
     pub quit: bool,
 }
@@ -132,6 +147,9 @@ impl App {
             event_receiver: event_rx,
             next_task_id: 1,
             menu_enabled: false,
+            show_tasks: false,
+            task_logs: Vec::new(),
+            initial_task: None,
             message: "Select a workflow from the menu (Onboard/Update/Config/Catalog).".into(),
             quit: false,
         };
@@ -150,9 +168,12 @@ impl App {
             action: TaskAction::Versions,
         };
         self.next_task_id += 1;
+        let queued_id = request.id;
+        let queued_label = request.label.clone();
+        self.initial_task = Some(queued_id);
         if self.task_sender.send(request).is_ok() {
             self.message = "Loading statuses...".into();
-            self.push_log_line("Queueing initial status refresh".into());
+            self.add_task_log(queued_id, queued_label, "queued".into());
         } else {
             self.menu_enabled = true;
             self.message = "Failed to queue status refresh.".into();
@@ -181,6 +202,14 @@ impl App {
 
     pub fn log(&self) -> &[String] {
         &self.log
+    }
+
+    pub fn show_tasks(&self) -> bool {
+        self.show_tasks
+    }
+
+    pub fn task_logs(&self) -> &[TaskLog] {
+        &self.task_logs
     }
 
     pub fn status_for(&self, id: SoftwareId) -> StatusState {
@@ -328,6 +357,15 @@ impl App {
         }
     }
 
+    pub fn toggle_task_view(&mut self) {
+        self.show_tasks = !self.show_tasks;
+        self.message = if self.show_tasks {
+            "Showing task logs (press t to switch back).".into()
+        } else {
+            "Showing action log.".into()
+        };
+    }
+
     fn run_on_selected(&mut self, action: ActionKind) {
         if self.screen != Screen::Software {
             self.message = "Open the software catalog to manage individual entries.".into();
@@ -383,13 +421,24 @@ impl App {
 
     pub fn poll_task_events(&mut self) {
         while let Ok(event) = self.event_receiver.try_recv() {
-            for message in event.messages {
-                self.push_log_line(message);
-            }
+            self.append_task_messages(event.id, event.label.clone(), event.messages);
             if let Some(statuses) = event.statuses {
                 for report in statuses {
                     self.statuses.insert(report.id, report.state);
                 }
+                if let Some(task) = self.task_logs.iter_mut().find(|t| t.id == event.id) {
+                    task.lines.push("done".into());
+                    trim_lines(&mut task.lines);
+                }
+                if self.initial_task == Some(event.id) {
+                    self.menu_enabled = true;
+                    self.initial_task = None;
+                    self.message = "Status refresh complete. Select a workflow.".into();
+                }
+            } else if self.initial_task == Some(event.id) {
+                self.menu_enabled = true;
+                self.initial_task = None;
+                self.message = "Status refresh complete. Select a workflow.".into();
             }
         }
     }
@@ -409,13 +458,11 @@ impl App {
                     },
                 };
                 self.next_task_id += 1;
+                let queued_id = request.id;
+                let queued_label = request.label.clone();
                 if self.task_sender.send(request).is_ok() {
                     self.message = format!("Queued {label}. Progress shown below.");
-                    self.push_log_line(format!(
-                        "queued task #{}: {}",
-                        self.next_task_id - 1,
-                        label
-                    ));
+                    self.add_task_log(queued_id, queued_label, "queued".into());
                 } else {
                     self.message = "Failed to queue template task.".into();
                 }
@@ -453,9 +500,11 @@ impl App {
             action: TaskAction::Versions,
         };
         self.next_task_id += 1;
+        let queued_id = request.id;
+        let queued_label = request.label.clone();
         if self.task_sender.send(request).is_ok() {
             self.message = "Queued version check; results will appear below.".into();
-            self.push_log_line(format!("queued task #{}: versions", self.next_task_id - 1));
+            self.add_task_log(queued_id, queued_label, "queued".into());
         } else {
             self.message = "Failed to queue version task.".into();
         }
@@ -473,6 +522,46 @@ impl App {
             let excess = self.log.len() - MAX_LOG_ENTRIES;
             self.log.drain(0..excess);
         }
+    }
+
+    fn add_task_log(&mut self, id: u64, label: String, line: String) {
+        if let Some(existing) = self.task_logs.iter_mut().find(|t| t.id == id) {
+            existing.lines.push(line);
+            trim_lines(&mut existing.lines);
+            return;
+        }
+        if self.task_logs.len() >= MAX_TASKS {
+            self.task_logs.remove(0);
+        }
+        let mut entry = TaskLog {
+            id,
+            label,
+            lines: vec![line],
+        };
+        trim_lines(&mut entry.lines);
+        self.task_logs.push(entry);
+    }
+
+    fn append_task_messages(&mut self, id: u64, label: String, messages: Vec<String>) {
+        if messages.is_empty() {
+            return;
+        }
+        if !self.task_logs.iter().any(|t| t.id == id) {
+            self.add_task_log(id, label.clone(), format!("task queued: {}", label));
+        }
+        if let Some(task) = self.task_logs.iter_mut().find(|t| t.id == id) {
+            for line in messages {
+                task.lines.push(line);
+            }
+            trim_lines(&mut task.lines);
+        }
+    }
+}
+
+fn trim_lines(lines: &mut Vec<String>) {
+    if lines.len() > MAX_TASK_LOG_LINES {
+        let excess = lines.len() - MAX_TASK_LOG_LINES;
+        lines.drain(0..excess);
     }
 }
 
@@ -499,7 +588,7 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                             }
                             if dry_run {
                                 messages.push("Dry run complete.".into());
-                                send_event(&event_tx, messages, None);
+                                send_event(&event_tx, request.id, &request.label, messages, None);
                                 continue;
                             }
                             let exec_result = match action {
@@ -517,17 +606,29 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                                         messages.push("...".into());
                                     }
                                     let statuses = manager.status_all();
-                                    send_event(&event_tx, messages, Some(statuses));
+                                    send_event(
+                                        &event_tx,
+                                        request.id,
+                                        &request.label,
+                                        messages,
+                                        Some(statuses),
+                                    );
                                 }
                                 Err(err) => {
                                     messages.push(format!("Error: {}", err));
-                                    send_event(&event_tx, messages, None);
+                                    send_event(
+                                        &event_tx,
+                                        request.id,
+                                        &request.label,
+                                        messages,
+                                        None,
+                                    );
                                 }
                             }
                         }
                         Err(err) => {
                             messages.push(format!("Failed to plan: {}", err));
-                            send_event(&event_tx, messages, None);
+                            send_event(&event_tx, request.id, &request.label, messages, None);
                         }
                     }
                 }
@@ -537,11 +638,13 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                     let mut messages =
                         vec![format!("Versions refreshed for {} entries", reports.len())];
                     messages.extend(summarize_reports(&reports));
-                    send_event(&event_tx, messages, Some(reports));
-                    let _ = event_tx.send(TaskEvent {
-                        messages: vec!["initial status refresh complete".into()],
-                        statuses: None,
-                    });
+                    send_event(
+                        &event_tx,
+                        request.id,
+                        &request.label,
+                        messages,
+                        Some(reports),
+                    );
                 }
             }
         }
@@ -575,8 +678,15 @@ fn summarize_reports(reports: &[StatusReport]) -> Vec<String> {
 
 fn send_event(
     sender: &Sender<TaskEvent>,
+    id: u64,
+    label: &str,
     messages: Vec<String>,
     statuses: Option<Vec<StatusReport>>,
 ) {
-    let _ = sender.send(TaskEvent { messages, statuses });
+    let _ = sender.send(TaskEvent {
+        id,
+        label: label.to_string(),
+        messages,
+        statuses,
+    });
 }

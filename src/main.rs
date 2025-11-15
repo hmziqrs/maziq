@@ -115,6 +115,7 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
                         }
                     }
                     KeyCode::Char('r') => app.refresh_statuses_with_feedback(),
+                    KeyCode::Char('t') => app.toggle_task_view(),
                     _ => {}
                 }
             }
