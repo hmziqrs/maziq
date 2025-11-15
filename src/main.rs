@@ -101,14 +101,21 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
                     }
                     KeyCode::Down | KeyCode::Char('j') => app.next(),
                     KeyCode::Up | KeyCode::Char('k') => app.previous(),
-                    KeyCode::Enter | KeyCode::Char(' ') => match app.screen() {
+                    KeyCode::Enter => match app.screen() {
                         app::Screen::Menu => app.activate_menu(),
                         app::Screen::Software => app.install_selected(),
                         app::Screen::E2ETest => {
-                            if app.e2e_software().is_none() {
-                                // Do nothing on selection screen, use number keys
-                            } else if app.e2e_tab() == app::E2ETab::Execute && !app.e2e_executing() {
+                            if app.e2e_software().is_some() && app.e2e_tab() == app::E2ETab::Execute && !app.e2e_executing() {
                                 app.execute_e2e();
+                            }
+                        }
+                    },
+                    KeyCode::Char(' ') => match app.screen() {
+                        app::Screen::Menu => app.activate_menu(),
+                        app::Screen::Software => app.install_selected(),
+                        app::Screen::E2ETest => {
+                            if app.e2e_software().is_some() && !app.e2e_executing() {
+                                app.toggle_e2e_step();
                             }
                         }
                     },
