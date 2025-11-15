@@ -21,7 +21,7 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
 fn draw_menu(frame: &mut Frame<'_>, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .constraints([Constraint::Percentage(72), Constraint::Percentage(28)])
         .split(frame.size());
 
     let items: Vec<ListItem> = app
@@ -56,13 +56,42 @@ fn draw_menu(frame: &mut Frame<'_>, app: &mut App) {
         );
     frame.render_stateful_widget(list, chunks[0], app.menu_state_mut());
 
+    let lower = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(4),
+            Constraint::Length(4),
+        ])
+        .split(chunks[1]);
+
+    let message =
+        Paragraph::new(app.message()).block(Block::default().title("Status").borders(Borders::ALL));
+    frame.render_widget(message, lower[0]);
+
+    let log_text = if app.show_tasks() {
+        render_task_logs(app)
+    } else if app.log().is_empty() {
+        "No actions executed yet.".to_string()
+    } else {
+        app.log().join("\n")
+    };
+    let log_title = if app.show_tasks() {
+        "Tasks"
+    } else {
+        "Action log"
+    };
+    let log =
+        Paragraph::new(log_text).block(Block::default().title(log_title).borders(Borders::ALL));
+    frame.render_widget(log, lower[1]);
+
     let dry_run_notice = if crate::options::global_dry_run() {
         " (dry-run: actions previewed only)"
     } else {
         ""
     };
     let instructions = Paragraph::new(format!(
-        "Enter or 1-5 selects • ↑/↓ or j/k navigate • r refresh statuses • Esc/m stay here • q quit{}",
+        "Enter or 1-5 selects • ↑/↓ or j/k navigate • r refresh statuses • t toggle log • Esc/m stay here • q quit{}",
         dry_run_notice
     ))
     .block(
@@ -70,7 +99,7 @@ fn draw_menu(frame: &mut Frame<'_>, app: &mut App) {
             .title("Menu controls")
             .borders(Borders::ALL),
     );
-    frame.render_widget(instructions, chunks[1]);
+    frame.render_widget(instructions, lower[2]);
 }
 
 fn draw_software(frame: &mut Frame<'_>, app: &mut App) {

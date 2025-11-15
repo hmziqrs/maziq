@@ -171,7 +171,6 @@ impl App {
         let queued_id = request.id;
         let queued_label = request.label.clone();
         self.initial_task = Some(queued_id);
-        self.menu_enabled = true;
         if self.task_sender.send(request).is_ok() {
             self.message = "Loading statuses...".into();
             self.add_task_log(queued_id, queued_label, "queued".into());
