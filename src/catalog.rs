@@ -12,6 +12,10 @@ pub enum SoftwareId {
     ZedStable,
     ZedPreview,
     Raycast,
+    ITerm2,
+    Warp,
+    Alacritty,
+    Fish,
     Rustup,
     RustStable,
     RustNightly,
@@ -22,6 +26,9 @@ pub enum SoftwareId {
     Nvm,
     Bun,
     Go,
+    Pyenv,
+    Poetry,
+    Uv,
     Flutter,
     AndroidStudio,
     ReactNativeCli,
@@ -33,6 +40,25 @@ pub enum SoftwareId {
     Postman,
     Yaak,
     Bruno,
+    TablePlus,
+    DBeaver,
+    MongoDbCompass,
+    RedisInsight,
+    Slack,
+    Discord,
+    Zoom,
+    Figma,
+    Vlc,
+    Kubectl,
+    Terraform,
+    AwsCli,
+    AzureCli,
+    Jq,
+    Ripgrep,
+    Fd,
+    Bat,
+    Fzf,
+    Btop,
     CodexCli,
     ClaudeCli,
     ClaudeMultiCli,
@@ -78,6 +104,10 @@ pub const ALL_SOFTWARE: &[SoftwareId] = &[
     SoftwareId::ZedStable,
     SoftwareId::ZedPreview,
     SoftwareId::Raycast,
+    SoftwareId::ITerm2,
+    SoftwareId::Warp,
+    SoftwareId::Alacritty,
+    SoftwareId::Fish,
     SoftwareId::Rustup,
     SoftwareId::RustStable,
     SoftwareId::RustNightly,
@@ -88,6 +118,9 @@ pub const ALL_SOFTWARE: &[SoftwareId] = &[
     SoftwareId::Nvm,
     SoftwareId::Bun,
     SoftwareId::Go,
+    SoftwareId::Pyenv,
+    SoftwareId::Poetry,
+    SoftwareId::Uv,
     SoftwareId::Flutter,
     SoftwareId::AndroidStudio,
     SoftwareId::ReactNativeCli,
@@ -99,6 +132,25 @@ pub const ALL_SOFTWARE: &[SoftwareId] = &[
     SoftwareId::Postman,
     SoftwareId::Yaak,
     SoftwareId::Bruno,
+    SoftwareId::TablePlus,
+    SoftwareId::DBeaver,
+    SoftwareId::MongoDbCompass,
+    SoftwareId::RedisInsight,
+    SoftwareId::Slack,
+    SoftwareId::Discord,
+    SoftwareId::Zoom,
+    SoftwareId::Figma,
+    SoftwareId::Vlc,
+    SoftwareId::Kubectl,
+    SoftwareId::Terraform,
+    SoftwareId::AwsCli,
+    SoftwareId::AzureCli,
+    SoftwareId::Jq,
+    SoftwareId::Ripgrep,
+    SoftwareId::Fd,
+    SoftwareId::Bat,
+    SoftwareId::Fzf,
+    SoftwareId::Btop,
     SoftwareId::CodexCli,
     SoftwareId::ClaudeCli,
     SoftwareId::ClaudeMultiCli,
@@ -314,6 +366,10 @@ impl SoftwareId {
             Self::ZedStable => "zed_stable",
             Self::ZedPreview => "zed_preview",
             Self::Raycast => "raycast",
+            Self::ITerm2 => "iterm2",
+            Self::Warp => "warp",
+            Self::Alacritty => "alacritty",
+            Self::Fish => "fish",
             Self::Rustup => "rustup",
             Self::RustStable => "rust_stable",
             Self::RustNightly => "rust_nightly",
@@ -324,6 +380,9 @@ impl SoftwareId {
             Self::Nvm => "nvm",
             Self::Bun => "bun",
             Self::Go => "go",
+            Self::Pyenv => "pyenv",
+            Self::Poetry => "poetry",
+            Self::Uv => "uv",
             Self::Flutter => "flutter",
             Self::AndroidStudio => "android_studio",
             Self::ReactNativeCli => "react_native_cli",
@@ -335,6 +394,25 @@ impl SoftwareId {
             Self::Postman => "postman",
             Self::Yaak => "yaak",
             Self::Bruno => "bruno",
+            Self::TablePlus => "tableplus",
+            Self::DBeaver => "dbeaver",
+            Self::MongoDbCompass => "mongodb_compass",
+            Self::RedisInsight => "redis_insight",
+            Self::Slack => "slack",
+            Self::Discord => "discord",
+            Self::Zoom => "zoom",
+            Self::Figma => "figma",
+            Self::Vlc => "vlc",
+            Self::Kubectl => "kubectl",
+            Self::Terraform => "terraform",
+            Self::AwsCli => "aws_cli",
+            Self::AzureCli => "azure_cli",
+            Self::Jq => "jq",
+            Self::Ripgrep => "ripgrep",
+            Self::Fd => "fd",
+            Self::Bat => "bat",
+            Self::Fzf => "fzf",
+            Self::Btop => "btop",
             Self::CodexCli => "codex_cli",
             Self::ClaudeCli => "claude_cli",
             Self::ClaudeMultiCli => "claude_multi_cli",
@@ -363,6 +441,10 @@ impl SoftwareId {
             Self::ZedStable => "Zed (Stable)",
             Self::ZedPreview => "Zed (Preview)",
             Self::Raycast => "Raycast",
+            Self::ITerm2 => "iTerm2",
+            Self::Warp => "Warp",
+            Self::Alacritty => "Alacritty",
+            Self::Fish => "Fish Shell",
             Self::Rustup => "Rustup",
             Self::RustStable => "Rust Toolchain (Stable)",
             Self::RustNightly => "Rust Toolchain (Nightly)",
@@ -373,6 +455,9 @@ impl SoftwareId {
             Self::Nvm => "Node Version Manager (nvm)",
             Self::Bun => "Bun Runtime",
             Self::Go => "Go Toolchain",
+            Self::Pyenv => "pyenv",
+            Self::Poetry => "Poetry",
+            Self::Uv => "uv",
             Self::Flutter => "Flutter SDK",
             Self::AndroidStudio => "Android Studio",
             Self::ReactNativeCli => "React Native CLI",
@@ -384,6 +469,25 @@ impl SoftwareId {
             Self::Postman => "Postman",
             Self::Yaak => "Yaak",
             Self::Bruno => "Bruno",
+            Self::TablePlus => "TablePlus",
+            Self::DBeaver => "DBeaver",
+            Self::MongoDbCompass => "MongoDB Compass",
+            Self::RedisInsight => "RedisInsight",
+            Self::Slack => "Slack",
+            Self::Discord => "Discord",
+            Self::Zoom => "Zoom",
+            Self::Figma => "Figma",
+            Self::Vlc => "VLC Media Player",
+            Self::Kubectl => "kubectl",
+            Self::Terraform => "Terraform",
+            Self::AwsCli => "AWS CLI",
+            Self::AzureCli => "Azure CLI",
+            Self::Jq => "jq",
+            Self::Ripgrep => "ripgrep",
+            Self::Fd => "fd",
+            Self::Bat => "bat",
+            Self::Fzf => "fzf",
+            Self::Btop => "btop",
             Self::CodexCli => "Codex CLI",
             Self::ClaudeCli => "Claude CLI",
             Self::ClaudeMultiCli => "Claude Multi CLI",
@@ -399,15 +503,19 @@ impl SoftwareId {
             Self::Homebrew => "Package manager foundation for macOS.",
             Self::XcodeCommandLineTools => "Compilers and SDK headers from Apple.",
             Self::Brave => "Privacy-focused Chromium browser.",
-            Self::Firefox => "Mozilla’s versatile browser.",
-            Self::Chrome => "Google’s mainstream browser.",
+            Self::Firefox => "Mozilla's versatile browser.",
+            Self::Chrome => "Google's mainstream browser.",
             Self::JetBrainsToolbox => "Launcher for JetBrains IDEs (including Android Studio).",
             Self::Cursor => "AI-native editor focused on flow with built-in agent.",
-            Self::Windsurf => "Codeium’s AI pair-programming IDE.",
-            Self::VisualStudioCode => "Microsoft’s extensible editor and IDE.",
+            Self::Windsurf => "Codeium's AI pair-programming IDE.",
+            Self::VisualStudioCode => "Microsoft's extensible editor and IDE.",
             Self::ZedStable => "Zed editor stable channel.",
             Self::ZedPreview => "Zed editor preview channel.",
             Self::Raycast => "Productivity command palette for macOS.",
+            Self::ITerm2 => "Popular macOS terminal replacement with advanced features.",
+            Self::Warp => "Modern terminal with AI features and collaborative editing.",
+            Self::Alacritty => "GPU-accelerated terminal emulator.",
+            Self::Fish => "User-friendly shell with autosuggestions and syntax highlighting.",
             Self::Rustup => "Rust toolchain installer and updater.",
             Self::RustStable => "Sets Rust stable toolchain as default.",
             Self::RustNightly => "Installs nightly Rust toolchain.",
@@ -417,9 +525,12 @@ impl SoftwareId {
             Self::SimpleHttpServer => "Nightly-only HTTP dev server.",
             Self::Nvm => "Manage multiple Node.js versions.",
             Self::Bun => "All-in-one JS runtime/bundler.",
-            Self::Go => "Google’s Go language toolchain.",
-            Self::Flutter => "Google’s UI SDK for mobile & desktop.",
-            Self::AndroidStudio => "Google’s official IDE for Android development.",
+            Self::Go => "Google's Go language toolchain.",
+            Self::Pyenv => "Python version manager for switching between Python versions.",
+            Self::Poetry => "Python dependency management and packaging tool.",
+            Self::Uv => "Extremely fast Python package installer and resolver.",
+            Self::Flutter => "Google's UI SDK for mobile & desktop.",
+            Self::AndroidStudio => "Google's official IDE for Android development.",
             Self::ReactNativeCli => "React Native project scaffolding CLI.",
             Self::DioxusCli => "Rust-based cross-platform UI tooling.",
             Self::YewCli => "CLI helpers for Yew web apps.",
@@ -429,12 +540,31 @@ impl SoftwareId {
             Self::Postman => "API design, testing, and collaboration suite.",
             Self::Yaak => "Lightweight REST and GraphQL API client.",
             Self::Bruno => "Text-based API collections and testing tool.",
+            Self::TablePlus => "Modern database GUI for MySQL, PostgreSQL, SQLite, and more.",
+            Self::DBeaver => "Free universal database tool and SQL client.",
+            Self::MongoDbCompass => "GUI for MongoDB with visual query builder.",
+            Self::RedisInsight => "Redis GUI with browser and CLI.",
+            Self::Slack => "Team communication and collaboration platform.",
+            Self::Discord => "Voice, video, and text communication platform.",
+            Self::Zoom => "Video conferencing and online meetings.",
+            Self::Figma => "Collaborative interface design tool.",
+            Self::Vlc => "Open-source multimedia player.",
+            Self::Kubectl => "Kubernetes command-line tool.",
+            Self::Terraform => "Infrastructure as code tool for cloud provisioning.",
+            Self::AwsCli => "Amazon Web Services command-line interface.",
+            Self::AzureCli => "Microsoft Azure command-line interface.",
+            Self::Jq => "Lightweight command-line JSON processor.",
+            Self::Ripgrep => "Extremely fast grep alternative.",
+            Self::Fd => "Simple, fast alternative to find.",
+            Self::Bat => "Cat clone with syntax highlighting and Git integration.",
+            Self::Fzf => "General-purpose command-line fuzzy finder.",
+            Self::Btop => "Resource monitor with modern interface.",
             Self::CodexCli => "Command-line interface for Codex-style AI coding.",
             Self::ClaudeCli => "Anthropic Claude assistant from the terminal.",
             Self::ClaudeMultiCli => "Manage multiple Claude sessions and keys via CLI.",
             Self::KimiCli => "Terminal gateway to Kimi AI assistant.",
             Self::GeminiCli => "Interact with Google Gemini models from the CLI.",
-            Self::QwenCli => "CLI helper for Alibaba Cloud’s Qwen assistants.",
+            Self::QwenCli => "CLI helper for Alibaba Cloud's Qwen assistants.",
             Self::OpencodeCli => "Dispatch open-source code LLMs via CLI workflows.",
         }
     }
@@ -449,8 +579,12 @@ impl SoftwareId {
             | Self::VisualStudioCode
             | Self::ZedStable
             | Self::ZedPreview => "Editors & IDEs",
+            Self::ITerm2 | Self::Warp | Self::Alacritty | Self::Fish => "Terminal & Shell",
             Self::Raycast | Self::DockerDesktop => "Desktop Utilities",
+            Self::Slack | Self::Discord | Self::Zoom => "Communication",
+            Self::Figma | Self::Vlc => "Design & Media",
             Self::Postman | Self::Yaak | Self::Bruno => "API & Testing",
+            Self::TablePlus | Self::DBeaver | Self::MongoDbCompass | Self::RedisInsight => "Database Tools",
             Self::Rustup
             | Self::RustStable
             | Self::RustNightly
@@ -461,6 +595,7 @@ impl SoftwareId {
             | Self::DioxusCli
             | Self::YewCli
             | Self::LeptosCli => "Rust Stack",
+            Self::Pyenv | Self::Poetry | Self::Uv => "Python Stack",
             Self::Nvm
             | Self::Bun
             | Self::ElectronForge
@@ -471,6 +606,8 @@ impl SoftwareId {
             | Self::GeminiCli
             | Self::QwenCli
             | Self::OpencodeCli => "JavaScript & AI CLIs",
+            Self::Kubectl | Self::Terraform | Self::AwsCli | Self::AzureCli => "DevOps & Cloud",
+            Self::Jq | Self::Ripgrep | Self::Fd | Self::Bat | Self::Fzf | Self::Btop => "CLI Utilities",
             Self::Go => "Languages",
             Self::Flutter | Self::AndroidStudio | Self::ReactNativeCli => "Mobile / Cross-Platform",
         }
@@ -488,15 +625,28 @@ impl SoftwareId {
             | Self::ZedStable
             | Self::ZedPreview
             | Self::Raycast
+            | Self::ITerm2
+            | Self::Warp
+            | Self::Alacritty
             | Self::AndroidStudio
             | Self::DockerDesktop
             | Self::Postman
             | Self::Yaak
-            | Self::Bruno => SoftwareKind::GuiApplication,
+            | Self::Bruno
+            | Self::TablePlus
+            | Self::DBeaver
+            | Self::MongoDbCompass
+            | Self::RedisInsight
+            | Self::Slack
+            | Self::Discord
+            | Self::Zoom
+            | Self::Figma
+            | Self::Vlc => SoftwareKind::GuiApplication,
             Self::Rustup
             | Self::RustStable
             | Self::RustNightly
             | Self::Go
+            | Self::Pyenv
             | Self::Flutter
             | Self::XcodeCommandLineTools => SoftwareKind::Sdk,
             _ => SoftwareKind::CliTool,
@@ -517,11 +667,34 @@ impl SoftwareId {
             | Self::ZedStable
             | Self::ZedPreview
             | Self::Raycast
+            | Self::ITerm2
+            | Self::Warp
+            | Self::Alacritty
+            | Self::Fish
             | Self::DockerDesktop
             | Self::Postman
             | Self::Yaak
             | Self::Bruno
-            | Self::AndroidStudio => &[SoftwareId::Homebrew],
+            | Self::TablePlus
+            | Self::DBeaver
+            | Self::MongoDbCompass
+            | Self::RedisInsight
+            | Self::Slack
+            | Self::Discord
+            | Self::Zoom
+            | Self::Figma
+            | Self::Vlc
+            | Self::AndroidStudio
+            | Self::Kubectl
+            | Self::Terraform
+            | Self::AwsCli
+            | Self::AzureCli
+            | Self::Jq
+            | Self::Ripgrep
+            | Self::Fd
+            | Self::Bat
+            | Self::Fzf
+            | Self::Btop => &[SoftwareId::Homebrew],
             Self::Rustup => &[],
             Self::RustStable | Self::RustNightly => &[SoftwareId::Rustup],
             Self::CargoJust
@@ -534,6 +707,8 @@ impl SoftwareId {
             Self::Nvm => &[],
             Self::Bun => &[],
             Self::Go => &[SoftwareId::Homebrew],
+            Self::Pyenv => &[],
+            Self::Poetry | Self::Uv => &[SoftwareId::Pyenv],
             Self::Flutter => &[SoftwareId::Homebrew],
             Self::ReactNativeCli
             | Self::ElectronForge
@@ -659,6 +834,98 @@ impl SoftwareId {
             Self::Bruno => VersionProbe::Mdls {
                 path: "/Applications/Bruno.app",
             },
+            Self::ITerm2 => VersionProbe::Mdls {
+                path: "/Applications/iTerm.app",
+            },
+            Self::Warp => VersionProbe::Mdls {
+                path: "/Applications/Warp.app",
+            },
+            Self::Alacritty => VersionProbe::Mdls {
+                path: "/Applications/Alacritty.app",
+            },
+            Self::Fish => VersionProbe::Command {
+                program: "fish",
+                args: &["--version"],
+            },
+            Self::TablePlus => VersionProbe::Mdls {
+                path: "/Applications/TablePlus.app",
+            },
+            Self::DBeaver => VersionProbe::Mdls {
+                path: "/Applications/DBeaver.app",
+            },
+            Self::MongoDbCompass => VersionProbe::Mdls {
+                path: "/Applications/MongoDB Compass.app",
+            },
+            Self::RedisInsight => VersionProbe::Mdls {
+                path: "/Applications/RedisInsight.app",
+            },
+            Self::Slack => VersionProbe::Mdls {
+                path: "/Applications/Slack.app",
+            },
+            Self::Discord => VersionProbe::Mdls {
+                path: "/Applications/Discord.app",
+            },
+            Self::Zoom => VersionProbe::Mdls {
+                path: "/Applications/zoom.us.app",
+            },
+            Self::Figma => VersionProbe::Mdls {
+                path: "/Applications/Figma.app",
+            },
+            Self::Vlc => VersionProbe::Mdls {
+                path: "/Applications/VLC.app",
+            },
+            Self::Pyenv => VersionProbe::Command {
+                program: "pyenv",
+                args: &["--version"],
+            },
+            Self::Poetry => VersionProbe::Command {
+                program: "poetry",
+                args: &["--version"],
+            },
+            Self::Uv => VersionProbe::Command {
+                program: "uv",
+                args: &["--version"],
+            },
+            Self::Kubectl => VersionProbe::Command {
+                program: "kubectl",
+                args: &["version", "--client", "--short"],
+            },
+            Self::Terraform => VersionProbe::Command {
+                program: "terraform",
+                args: &["--version"],
+            },
+            Self::AwsCli => VersionProbe::Command {
+                program: "aws",
+                args: &["--version"],
+            },
+            Self::AzureCli => VersionProbe::Command {
+                program: "az",
+                args: &["--version"],
+            },
+            Self::Jq => VersionProbe::Command {
+                program: "jq",
+                args: &["--version"],
+            },
+            Self::Ripgrep => VersionProbe::Command {
+                program: "rg",
+                args: &["--version"],
+            },
+            Self::Fd => VersionProbe::Command {
+                program: "fd",
+                args: &["--version"],
+            },
+            Self::Bat => VersionProbe::Command {
+                program: "bat",
+                args: &["--version"],
+            },
+            Self::Fzf => VersionProbe::Command {
+                program: "fzf",
+                args: &["--version"],
+            },
+            Self::Btop => VersionProbe::Command {
+                program: "btop",
+                args: &["--version"],
+            },
             Self::CodexCli => VersionProbe::Command {
                 program: "codex",
                 args: &["--version"],
@@ -741,6 +1008,32 @@ impl SoftwareId {
             Self::Postman => CommandRecipe::Shell("brew install --cask postman"),
             Self::Yaak => CommandRecipe::Shell("brew install --cask yaak"),
             Self::Bruno => CommandRecipe::Shell("brew install --cask bruno"),
+            Self::ITerm2 => CommandRecipe::Shell("brew install --cask iterm2"),
+            Self::Warp => CommandRecipe::Shell("brew install --cask warp"),
+            Self::Alacritty => CommandRecipe::Shell("brew install --cask alacritty"),
+            Self::Fish => CommandRecipe::Shell("brew install fish"),
+            Self::TablePlus => CommandRecipe::Shell("brew install --cask tableplus"),
+            Self::DBeaver => CommandRecipe::Shell("brew install --cask dbeaver-community"),
+            Self::MongoDbCompass => CommandRecipe::Shell("brew install --cask mongodb-compass"),
+            Self::RedisInsight => CommandRecipe::Shell("brew install --cask redisinsight"),
+            Self::Slack => CommandRecipe::Shell("brew install --cask slack"),
+            Self::Discord => CommandRecipe::Shell("brew install --cask discord"),
+            Self::Zoom => CommandRecipe::Shell("brew install --cask zoom"),
+            Self::Figma => CommandRecipe::Shell("brew install --cask figma"),
+            Self::Vlc => CommandRecipe::Shell("brew install --cask vlc"),
+            Self::Pyenv => CommandRecipe::Shell("brew install pyenv"),
+            Self::Poetry => CommandRecipe::Shell("curl -sSL https://install.python-poetry.org | python3 -"),
+            Self::Uv => CommandRecipe::Shell("curl -LsSf https://astral.sh/uv/install.sh | sh"),
+            Self::Kubectl => CommandRecipe::Shell("brew install kubectl"),
+            Self::Terraform => CommandRecipe::Shell("brew install terraform"),
+            Self::AwsCli => CommandRecipe::Shell("brew install awscli"),
+            Self::AzureCli => CommandRecipe::Shell("brew install azure-cli"),
+            Self::Jq => CommandRecipe::Shell("brew install jq"),
+            Self::Ripgrep => CommandRecipe::Shell("brew install ripgrep"),
+            Self::Fd => CommandRecipe::Shell("brew install fd"),
+            Self::Bat => CommandRecipe::Shell("brew install bat"),
+            Self::Fzf => CommandRecipe::Shell("brew install fzf"),
+            Self::Btop => CommandRecipe::Shell("brew install btop"),
             Self::CodexCli => CommandRecipe::Shell("npm install -g codex-cli"),
             Self::ClaudeCli => CommandRecipe::Shell("npm install -g claude-cli"),
             Self::ClaudeMultiCli => CommandRecipe::Shell("npm install -g claude-multi-cli"),
@@ -794,6 +1087,32 @@ impl SoftwareId {
             Self::Postman => CommandRecipe::Shell("brew upgrade --cask postman"),
             Self::Yaak => CommandRecipe::Shell("brew upgrade --cask yaak"),
             Self::Bruno => CommandRecipe::Shell("brew upgrade --cask bruno"),
+            Self::ITerm2 => CommandRecipe::Shell("brew upgrade --cask iterm2"),
+            Self::Warp => CommandRecipe::Shell("brew upgrade --cask warp"),
+            Self::Alacritty => CommandRecipe::Shell("brew upgrade --cask alacritty"),
+            Self::Fish => CommandRecipe::Shell("brew upgrade fish"),
+            Self::TablePlus => CommandRecipe::Shell("brew upgrade --cask tableplus"),
+            Self::DBeaver => CommandRecipe::Shell("brew upgrade --cask dbeaver-community"),
+            Self::MongoDbCompass => CommandRecipe::Shell("brew upgrade --cask mongodb-compass"),
+            Self::RedisInsight => CommandRecipe::Shell("brew upgrade --cask redisinsight"),
+            Self::Slack => CommandRecipe::Shell("brew upgrade --cask slack"),
+            Self::Discord => CommandRecipe::Shell("brew upgrade --cask discord"),
+            Self::Zoom => CommandRecipe::Shell("brew upgrade --cask zoom"),
+            Self::Figma => CommandRecipe::Shell("brew upgrade --cask figma"),
+            Self::Vlc => CommandRecipe::Shell("brew upgrade --cask vlc"),
+            Self::Pyenv => CommandRecipe::Shell("brew upgrade pyenv"),
+            Self::Poetry => CommandRecipe::Shell("poetry self update"),
+            Self::Uv => CommandRecipe::Shell("curl -LsSf https://astral.sh/uv/install.sh | sh"),
+            Self::Kubectl => CommandRecipe::Shell("brew upgrade kubectl"),
+            Self::Terraform => CommandRecipe::Shell("brew upgrade terraform"),
+            Self::AwsCli => CommandRecipe::Shell("brew upgrade awscli"),
+            Self::AzureCli => CommandRecipe::Shell("brew upgrade azure-cli"),
+            Self::Jq => CommandRecipe::Shell("brew upgrade jq"),
+            Self::Ripgrep => CommandRecipe::Shell("brew upgrade ripgrep"),
+            Self::Fd => CommandRecipe::Shell("brew upgrade fd"),
+            Self::Bat => CommandRecipe::Shell("brew upgrade bat"),
+            Self::Fzf => CommandRecipe::Shell("brew upgrade fzf"),
+            Self::Btop => CommandRecipe::Shell("brew upgrade btop"),
             Self::CodexCli => CommandRecipe::Shell("npm update -g codex-cli"),
             Self::ClaudeCli => CommandRecipe::Shell("npm update -g claude-cli"),
             Self::ClaudeMultiCli => CommandRecipe::Shell("npm update -g claude-multi-cli"),
@@ -847,6 +1166,32 @@ impl SoftwareId {
             Self::Postman => CommandRecipe::Shell("brew uninstall --cask postman"),
             Self::Yaak => CommandRecipe::Shell("brew uninstall --cask yaak"),
             Self::Bruno => CommandRecipe::Shell("brew uninstall --cask bruno"),
+            Self::ITerm2 => CommandRecipe::Shell("brew uninstall --cask iterm2"),
+            Self::Warp => CommandRecipe::Shell("brew uninstall --cask warp"),
+            Self::Alacritty => CommandRecipe::Shell("brew uninstall --cask alacritty"),
+            Self::Fish => CommandRecipe::Shell("brew uninstall fish"),
+            Self::TablePlus => CommandRecipe::Shell("brew uninstall --cask tableplus"),
+            Self::DBeaver => CommandRecipe::Shell("brew uninstall --cask dbeaver-community"),
+            Self::MongoDbCompass => CommandRecipe::Shell("brew uninstall --cask mongodb-compass"),
+            Self::RedisInsight => CommandRecipe::Shell("brew uninstall --cask redisinsight"),
+            Self::Slack => CommandRecipe::Shell("brew uninstall --cask slack"),
+            Self::Discord => CommandRecipe::Shell("brew uninstall --cask discord"),
+            Self::Zoom => CommandRecipe::Shell("brew uninstall --cask zoom"),
+            Self::Figma => CommandRecipe::Shell("brew uninstall --cask figma"),
+            Self::Vlc => CommandRecipe::Shell("brew uninstall --cask vlc"),
+            Self::Pyenv => CommandRecipe::Shell("brew uninstall pyenv"),
+            Self::Poetry => CommandRecipe::Manual("Run: curl -sSL https://install.python-poetry.org | python3 - --uninstall"),
+            Self::Uv => CommandRecipe::Manual("Remove ~/.cargo/bin/uv and related files."),
+            Self::Kubectl => CommandRecipe::Shell("brew uninstall kubectl"),
+            Self::Terraform => CommandRecipe::Shell("brew uninstall terraform"),
+            Self::AwsCli => CommandRecipe::Shell("brew uninstall awscli"),
+            Self::AzureCli => CommandRecipe::Shell("brew uninstall azure-cli"),
+            Self::Jq => CommandRecipe::Shell("brew uninstall jq"),
+            Self::Ripgrep => CommandRecipe::Shell("brew uninstall ripgrep"),
+            Self::Fd => CommandRecipe::Shell("brew uninstall fd"),
+            Self::Bat => CommandRecipe::Shell("brew uninstall bat"),
+            Self::Fzf => CommandRecipe::Shell("brew uninstall fzf"),
+            Self::Btop => CommandRecipe::Shell("brew uninstall btop"),
             Self::CodexCli => CommandRecipe::Shell("npm uninstall -g codex-cli"),
             Self::ClaudeCli => CommandRecipe::Shell("npm uninstall -g claude-cli"),
             Self::ClaudeMultiCli => CommandRecipe::Shell("npm uninstall -g claude-multi-cli"),
@@ -921,12 +1266,28 @@ pub const CATEGORIES: &[SoftwareCategory] = &[
         ],
     },
     SoftwareCategory {
+        name: "Terminal & Shell",
+        entries: &[SoftwareId::ITerm2, SoftwareId::Warp, SoftwareId::Alacritty, SoftwareId::Fish],
+    },
+    SoftwareCategory {
         name: "Desktop Utilities",
         entries: &[SoftwareId::Raycast, SoftwareId::DockerDesktop],
     },
     SoftwareCategory {
+        name: "Communication",
+        entries: &[SoftwareId::Slack, SoftwareId::Discord, SoftwareId::Zoom],
+    },
+    SoftwareCategory {
+        name: "Design & Media",
+        entries: &[SoftwareId::Figma, SoftwareId::Vlc],
+    },
+    SoftwareCategory {
         name: "API & Testing",
         entries: &[SoftwareId::Postman, SoftwareId::Yaak, SoftwareId::Bruno],
+    },
+    SoftwareCategory {
+        name: "Database Tools",
+        entries: &[SoftwareId::TablePlus, SoftwareId::DBeaver, SoftwareId::MongoDbCompass, SoftwareId::RedisInsight],
     },
     SoftwareCategory {
         name: "Rust Stack",
@@ -944,8 +1305,16 @@ pub const CATEGORIES: &[SoftwareCategory] = &[
         ],
     },
     SoftwareCategory {
+        name: "Python Stack",
+        entries: &[SoftwareId::Pyenv, SoftwareId::Poetry, SoftwareId::Uv],
+    },
+    SoftwareCategory {
         name: "JavaScript & Node",
         entries: &[SoftwareId::Nvm, SoftwareId::Bun, SoftwareId::ElectronForge],
+    },
+    SoftwareCategory {
+        name: "DevOps & Cloud",
+        entries: &[SoftwareId::Kubectl, SoftwareId::Terraform, SoftwareId::AwsCli, SoftwareId::AzureCli],
     },
     SoftwareCategory {
         name: "Mobile / Cross-Platform",
@@ -954,6 +1323,10 @@ pub const CATEGORIES: &[SoftwareCategory] = &[
             SoftwareId::AndroidStudio,
             SoftwareId::ReactNativeCli,
         ],
+    },
+    SoftwareCategory {
+        name: "CLI Utilities",
+        entries: &[SoftwareId::Jq, SoftwareId::Ripgrep, SoftwareId::Fd, SoftwareId::Bat, SoftwareId::Fzf, SoftwareId::Btop],
     },
     SoftwareCategory {
         name: "AI Assistant CLIs",
