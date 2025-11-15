@@ -49,8 +49,8 @@ _Phase 3 – GUI apps & Homebrew_
 _Phase 4 – Onboarding & configurator_
 - [x] Implement a template-driven `onboard fresh` workflow that installs all software in the selected template in dependency order.
 - [x] Implement an `onboard update` workflow that updates all software defined in the template.
-- [ ] Implement the configurator to list profiles and apply Git/SSH/GPG/email/username/default branch/pull mode settings.
-- [ ] Add backup and dry-run support for configurator changes, mark as experimental, and gate it behind an explicit `--experimental-config` (or similar) flag.
+- [x] Implement the configurator to list profiles and apply Git/SSH/GPG/email/username/default branch/pull mode settings.
+- [x] Add backup and dry-run support for configurator changes, mark as experimental, and gate it behind an explicit `--experimental-config` (or similar) flag.
 
 _Phase 5 – Safety, testing & DX_
 - [ ] Add a global dry-run flag to show planned actions without executing them.
