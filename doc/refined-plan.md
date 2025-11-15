@@ -6,6 +6,8 @@
 - Define per-software adapters that know how to install, update, and uninstall each tool (commands can differ per software).
 - Check status of each software (not installed / outdated / up to date).
 - Support dependency-aware operations (e.g., install Rust before `just`, install Bun/Node before `codex`).
+- Standardize version detection per software: use `mdls -name kMDItemVersion` for `.app` bundles (Android Studio, Xcode, VS Code, Cursor), `<tool> --version` for CLI/SDKs (Flutter, Rust, Xcode tools, etc.), and `brew list --versions` for Homebrew packages, with `mdfind` + `mdls` as a fallback for unknown app paths.
+- Provide a single command/script that prints all detected versions in one run for quick diagnostics.
 
 **Testing**
 - Provide a way to run install/update/tests for each software individually.
