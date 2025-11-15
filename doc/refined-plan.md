@@ -22,3 +22,36 @@
 - List available and currently applied configuration profiles.
 - Install configuration (initially: Git, SSH, GPG key, email, username, default branch `master`, pull mode `rebase`).
 - Mark the configurator as experimental and avoid using it as the default path for now.
+
+**Implementation Phases (Codex Checklist)**
+
+_Phase 1 – Core CLI & structure_
+- [ ] Scaffold the CLI binary with subcommands: `software`, `onboard`, `config`, `versions`.
+- [ ] Define a data model for software entries (id, display name, GUI/CLI, version command, install/update/uninstall strategy, dependencies, Homebrew cask/formula name).
+- [ ] Implement loading of software templates/configs, including a default `hmziq` template.
+
+_Phase 2 – Software manager engine_
+- [ ] Implement a per-software adapter trait (install, update, uninstall, status, test).
+- [ ] Register adapters for key tools (Rust, Bun, Node.js, just, Codex, Flutter, Android Studio, Xcode, VS Code, Cursor, etc.).
+- [ ] Implement dependency-aware execution so prerequisites (e.g. Rust for `just`, Bun/Node for `codex`) are installed first.
+- [ ] Implement status detection (installed / outdated / not installed) using the standardized version detection rules and Homebrew metadata.
+- [ ] Implement install/update/uninstall commands for individual software and for all items in a template.
+- [ ] Implement a `versions` command (or similar) that prints all detected software versions in one run.
+
+_Phase 3 – GUI apps & Homebrew_
+- [ ] Implement respectful installation of GUI apps via Homebrew casks (e.g. `brew install --cask android-studio`).
+- [ ] Detect existing `.app` bundles via `mdls` / `mdfind` and offer skip/upgrade/reinstall, rather than overwriting silently.
+- [ ] Ensure GUI adapters only manage application binaries (no user project/settings changes).
+
+_Phase 4 – Onboarding & configurator_
+- [ ] Implement a template-driven `onboard fresh` workflow that installs all software in the selected template in dependency order.
+- [ ] Implement an `onboard update` workflow that updates all software defined in the template.
+- [ ] Implement the configurator to list profiles and apply Git/SSH/GPG/email/username/default branch/pull mode settings.
+- [ ] Add backup and dry-run support for configurator changes, mark as experimental, and gate it behind an explicit `--experimental-config` (or similar) flag.
+
+_Phase 5 – Safety, testing & DX_
+- [ ] Add a global dry-run flag to show planned actions without executing them.
+- [ ] Add confirmation prompts for destructive operations (uninstall, major upgrades), with a `--yes` flag to skip prompts when desired.
+- [ ] Add logging and a concise summary report per run (per software success/failure).
+- [ ] Implement a small test harness to run per-software adapter tests and dependency-chain tests.
+- [ ] Optionally add a `--json` output mode so other tools (including Codex) can consume results programmatically.
