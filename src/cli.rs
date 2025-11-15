@@ -213,6 +213,12 @@ fn run_onboard_flow(action: ActionKind, args: OnboardFlowArgs) -> Result<(), Box
             format_dependencies(catalog::entry(*id).dependencies)
         );
     }
+
+    if args.dry_run {
+        println!("\nDry run mode enabled; no commands executed.");
+        return Ok(());
+    }
+
     println!();
     let events = match action {
         ActionKind::Install => manager.install_many(&template.software)?,
