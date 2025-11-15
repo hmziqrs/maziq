@@ -147,7 +147,7 @@ impl App {
             event_receiver: event_rx,
             next_task_id: 1,
             menu_enabled: false,
-            show_tasks: false,
+            show_tasks: true,
             task_logs: Vec::new(),
             initial_task: None,
             message: "Select a workflow from the menu (Onboard/Update/Config/Catalog).".into(),
@@ -171,11 +171,12 @@ impl App {
         let queued_id = request.id;
         let queued_label = request.label.clone();
         self.initial_task = Some(queued_id);
+        self.menu_enabled = true;
         if self.task_sender.send(request).is_ok() {
             self.message = "Loading statuses...".into();
             self.add_task_log(queued_id, queued_label, "queued".into());
+            self.show_tasks = true;
         } else {
-            self.menu_enabled = true;
             self.message = "Failed to queue status refresh.".into();
         }
     }
@@ -463,6 +464,7 @@ impl App {
                 if self.task_sender.send(request).is_ok() {
                     self.message = format!("Queued {label}. Progress shown below.");
                     self.add_task_log(queued_id, queued_label, "queued".into());
+                    self.show_tasks = true;
                 } else {
                     self.message = "Failed to queue template task.".into();
                 }
@@ -505,6 +507,7 @@ impl App {
         if self.task_sender.send(request).is_ok() {
             self.message = "Queued version check; results will appear below.".into();
             self.add_task_log(queued_id, queued_label, "queued".into());
+            self.show_tasks = true;
         } else {
             self.message = "Failed to queue version task.".into();
         }
@@ -606,6 +609,7 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                                         messages.push("...".into());
                                     }
                                     let statuses = manager.status_all();
+                                    messages.push("done".into());
                                     send_event(
                                         &event_tx,
                                         request.id,
@@ -616,6 +620,7 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                                 }
                                 Err(err) => {
                                     messages.push(format!("Error: {}", err));
+                                    messages.push("done".into());
                                     send_event(
                                         &event_tx,
                                         request.id,
@@ -628,6 +633,7 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                         }
                         Err(err) => {
                             messages.push(format!("Failed to plan: {}", err));
+                            messages.push("done".into());
                             send_event(&event_tx, request.id, &request.label, messages, None);
                         }
                     }
@@ -638,6 +644,7 @@ fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) 
                     let mut messages =
                         vec![format!("Versions refreshed for {} entries", reports.len())];
                     messages.extend(summarize_reports(&reports));
+                    messages.push("done".into());
                     send_event(
                         &event_tx,
                         request.id,
