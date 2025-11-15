@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::mpsc::{self, Receiver, Sender},
+    thread,
+};
 
 use ratatui::widgets::ListState;
 
@@ -6,11 +10,12 @@ use crate::{
     catalog::{self, SoftwareHandle, SoftwareId},
     configurator::{self, ApplyOptions as ConfigApplyOptions},
     manager::{ActionKind, ExecutionEvent, SoftwareManager, StatusReport, StatusState},
-    templates,
+    templates::{self, Template},
 };
 
 const MAX_LOG_ENTRIES: usize = 6;
 const DEFAULT_TEMPLATE: &str = "hmziq";
+const MAX_TASK_LOG_LINES: usize = 5;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Screen {
@@ -62,6 +67,27 @@ const MENU_ENTRIES: &[MenuEntry] = &[
     },
 ];
 
+struct TaskRequest {
+    id: u64,
+    label: String,
+    action: TaskAction,
+}
+
+enum TaskAction {
+    TemplateFlow {
+        action: ActionKind,
+        template: Template,
+        force: bool,
+        dry_run: bool,
+    },
+    Versions,
+}
+
+struct TaskEvent {
+    messages: Vec<String>,
+    statuses: Option<Vec<StatusReport>>,
+}
+
 pub struct App {
     handles: Vec<SoftwareHandle>,
     state: ListState,
@@ -70,6 +96,9 @@ pub struct App {
     manager: SoftwareManager,
     log: Vec<String>,
     screen: Screen,
+    task_sender: Sender<TaskRequest>,
+    event_receiver: Receiver<TaskEvent>,
+    next_task_id: u64,
     pub message: String,
     pub quit: bool,
 }
@@ -86,6 +115,10 @@ impl App {
             menu_state.select(Some(0));
         }
 
+        let (task_tx, task_rx) = mpsc::channel();
+        let (event_tx, event_rx) = mpsc::channel();
+        spawn_worker(task_rx, event_tx);
+
         let mut app = Self {
             handles,
             state,
@@ -94,6 +127,9 @@ impl App {
             manager: SoftwareManager::new(),
             log: Vec::new(),
             screen: Screen::Menu,
+            task_sender: task_tx,
+            event_receiver: event_rx,
+            next_task_id: 1,
             message: "Select a workflow from the menu (Onboard/Update/Config/Catalog).".into(),
             quit: false,
         };
@@ -315,61 +351,43 @@ impl App {
         }
     }
 
+    pub fn poll_task_events(&mut self) {
+        while let Ok(event) = self.event_receiver.try_recv() {
+            for message in event.messages {
+                self.push_log_line(message);
+            }
+            if let Some(statuses) = event.statuses {
+                for report in statuses {
+                    self.statuses.insert(report.id, report.state);
+                }
+            }
+        }
+    }
+
     fn run_template_flow(&mut self, action: ActionKind) {
         match templates::load_named(DEFAULT_TEMPLATE) {
             Ok(template) => {
-                self.message = format!(
-                    "{} `{}` template...",
-                    match action {
-                        ActionKind::Install => "Installing",
-                        ActionKind::Update => "Updating",
-                        ActionKind::Uninstall => "Uninstalling",
-                        ActionKind::Test => "Testing",
+                let label = format!("{} `{}` template", action.label(), template.name);
+                let request = TaskRequest {
+                    id: self.next_task_id,
+                    label: label.clone(),
+                    action: TaskAction::TemplateFlow {
+                        action,
+                        template,
+                        force: false,
+                        dry_run: crate::options::global_dry_run(),
                     },
-                    template.name
-                );
-                match self.manager.plan(&template.software, action) {
-                    Ok(plan) => {
-                        self.push_log_line(format!(
-                            "{} plan ({} steps)",
-                            action.label(),
-                            plan.len()
-                        ));
-                        for (idx, id) in plan.iter().enumerate() {
-                            self.push_log_line(format!("{:>2}. {}", idx + 1, id.name()));
-                        }
-                        let result = match action {
-                            ActionKind::Install => self.manager.install_many(&template.software),
-                            ActionKind::Update => self.manager.update_many(&template.software),
-                            ActionKind::Uninstall => {
-                                self.manager.uninstall_many(&template.software)
-                            }
-                            ActionKind::Test => Ok(Vec::new()),
-                        };
-                        match result {
-                            Ok(events) => {
-                                self.append_log(&events);
-                                self.message = format!(
-                                    "{} template `{}` complete.",
-                                    action.label(),
-                                    template.name
-                                );
-                                self.refresh_statuses();
-                            }
-                            Err(err) => {
-                                self.message = format!(
-                                    "{} template `{}` failed: {}",
-                                    action.label(),
-                                    template.name,
-                                    err
-                                );
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        self.message =
-                            format!("Failed to plan template `{}`: {}", template.name, err);
-                    }
+                };
+                self.next_task_id += 1;
+                if self.task_sender.send(request).is_ok() {
+                    self.message = format!("Queued {label}. Progress shown below.");
+                    self.push_log_line(format!(
+                        "queued task #{}: {}",
+                        self.next_task_id - 1,
+                        label
+                    ));
+                } else {
+                    self.message = "Failed to queue template task.".into();
                 }
             }
             Err(err) => {
@@ -399,37 +417,17 @@ impl App {
     }
 
     fn run_versions_check(&mut self) {
-        let reports = self.manager.status_all();
-        self.message = format!("Versions refreshed for {} entries.", reports.len());
-        self.log_versions(&reports);
-        for report in reports {
-            self.statuses.insert(report.id, report.state);
-        }
-    }
-
-    fn log_versions(&mut self, reports: &[StatusReport]) {
-        let mut iter = reports.iter();
-        for report in iter.by_ref().take(4) {
-            let summary = match &report.state {
-                StatusState::Installed { version } => {
-                    format!(
-                        "{} -> {}",
-                        report.id.name(),
-                        version.clone().unwrap_or_else(|| "installed".into())
-                    )
-                }
-                StatusState::NotInstalled => format!("{} -> missing", report.id.name()),
-                StatusState::ManualCheck(note) => {
-                    format!("{} -> manual ({})", report.id.name(), note)
-                }
-                StatusState::Unknown(note) => {
-                    format!("{} -> unknown ({})", report.id.name(), note)
-                }
-            };
-            self.push_log_line(format!("versions -> {summary}"));
-        }
-        if iter.next().is_some() {
-            self.push_log_line("versions -> ...".into());
+        let request = TaskRequest {
+            id: self.next_task_id,
+            label: "Versions refresh".into(),
+            action: TaskAction::Versions,
+        };
+        self.next_task_id += 1;
+        if self.task_sender.send(request).is_ok() {
+            self.message = "Queued version check; results will appear below.".into();
+            self.push_log_line(format!("queued task #{}: versions", self.next_task_id - 1));
+        } else {
+            self.message = "Failed to queue version task.".into();
         }
     }
 
@@ -446,4 +444,105 @@ impl App {
             self.log.drain(0..excess);
         }
     }
+}
+
+fn spawn_worker(request_rx: Receiver<TaskRequest>, event_tx: Sender<TaskEvent>) {
+    thread::spawn(move || {
+        while let Ok(request) = request_rx.recv() {
+            match request.action {
+                TaskAction::TemplateFlow {
+                    action,
+                    template,
+                    force,
+                    dry_run,
+                } => {
+                    let manager = SoftwareManager::with_flags(dry_run, force);
+                    let mut messages = vec![format!("{} (task #{})", request.label, request.id)];
+                    match manager.plan(&template.software, action) {
+                        Ok(plan) => {
+                            messages.push(format!("Plan includes {} steps", plan.len()));
+                            for (idx, id) in plan.iter().take(MAX_TASK_LOG_LINES).enumerate() {
+                                messages.push(format!("  {:>2}. {}", idx + 1, id.name()));
+                            }
+                            if plan.len() > MAX_TASK_LOG_LINES {
+                                messages.push("  ...".into());
+                            }
+                            if dry_run {
+                                messages.push("Dry run complete.".into());
+                                send_event(&event_tx, messages, None);
+                                continue;
+                            }
+                            let exec_result = match action {
+                                ActionKind::Install => manager.install_many(&template.software),
+                                ActionKind::Update => manager.update_many(&template.software),
+                                ActionKind::Uninstall => manager.uninstall_many(&template.software),
+                                ActionKind::Test => Ok(Vec::new()),
+                            };
+                            match exec_result {
+                                Ok(events) => {
+                                    for event in events.iter().take(MAX_TASK_LOG_LINES) {
+                                        messages.push(event.summary());
+                                    }
+                                    if events.len() > MAX_TASK_LOG_LINES {
+                                        messages.push("...".into());
+                                    }
+                                    let statuses = manager.status_all();
+                                    send_event(&event_tx, messages, Some(statuses));
+                                }
+                                Err(err) => {
+                                    messages.push(format!("Error: {}", err));
+                                    send_event(&event_tx, messages, None);
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            messages.push(format!("Failed to plan: {}", err));
+                            send_event(&event_tx, messages, None);
+                        }
+                    }
+                }
+                TaskAction::Versions => {
+                    let manager = SoftwareManager::new();
+                    let reports = manager.status_all();
+                    let mut messages =
+                        vec![format!("Versions refreshed for {} entries", reports.len())];
+                    messages.extend(summarize_reports(&reports));
+                    send_event(&event_tx, messages, Some(reports));
+                }
+            }
+        }
+    });
+}
+
+fn summarize_reports(reports: &[StatusReport]) -> Vec<String> {
+    let mut lines = Vec::new();
+    for report in reports.iter().take(MAX_TASK_LOG_LINES) {
+        let summary = match &report.state {
+            StatusState::Installed { version } => format!(
+                "{} -> {}",
+                report.id.name(),
+                version.clone().unwrap_or_else(|| "installed".into())
+            ),
+            StatusState::NotInstalled => format!("{} -> missing", report.id.name()),
+            StatusState::ManualCheck(note) => {
+                format!("{} -> manual ({})", report.id.name(), note)
+            }
+            StatusState::Unknown(note) => {
+                format!("{} -> unknown ({})", report.id.name(), note)
+            }
+        };
+        lines.push(format!("versions -> {}", summary));
+    }
+    if reports.len() > MAX_TASK_LOG_LINES {
+        lines.push("versions -> ...".into());
+    }
+    lines
+}
+
+fn send_event(
+    sender: &Sender<TaskEvent>,
+    messages: Vec<String>,
+    statuses: Option<Vec<StatusReport>>,
+) {
+    let _ = sender.send(TaskEvent { messages, statuses });
 }
