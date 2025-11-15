@@ -71,8 +71,15 @@ pub enum StatusState {
 #[derive(Debug)]
 pub enum ManagerError {
     CycleDetected(SoftwareId),
-    CommandFailed { command: String, stderr: String },
+    CommandFailed {
+        command: String,
+        stderr: String,
+    },
     Spawn(std::io::Error),
+    UnsafeGuiCommand {
+        id: SoftwareId,
+        command: &'static str,
+    },
 }
 
 impl fmt::Display for ManagerError {
@@ -85,6 +92,12 @@ impl fmt::Display for ManagerError {
                 write!(f, "Command `{command}` failed: {stderr}")
             }
             ManagerError::Spawn(err) => write!(f, "Failed to spawn command: {err}"),
+            ManagerError::UnsafeGuiCommand { id, command } => write!(
+                f,
+                "GUI application `{}` attempted to run unsafe command `{}`. Only application binaries should be managed.",
+                id.name(),
+                command
+            ),
         }
     }
 }
@@ -132,6 +145,16 @@ impl CatalogAdapter {
     ) -> Result<ExecutionEvent, ManagerError> {
         match recipe {
             CommandRecipe::Shell(cmd) => {
+                if self.entry.kind == catalog::SoftwareKind::GuiApplication
+                    && !(cmd.starts_with("brew install --cask")
+                        || cmd.starts_with("brew upgrade --cask")
+                        || cmd.starts_with("brew uninstall --cask"))
+                {
+                    return Err(ManagerError::UnsafeGuiCommand {
+                        id: self.entry.id,
+                        command: cmd,
+                    });
+                }
                 exec.run_shell(cmd)?;
                 Ok(ExecutionEvent {
                     id: self.entry.id,
