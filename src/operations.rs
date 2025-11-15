@@ -17,6 +17,9 @@ pub fn check_installed(id: SoftwareId) -> bool {
         SoftwareId::Firefox => check_gui_app("Firefox"),
         SoftwareId::Chrome => check_gui_app("Google Chrome"),
         SoftwareId::JetBrainsToolbox => check_gui_app("JetBrains Toolbox"),
+        SoftwareId::Cursor => check_gui_app("Cursor"),
+        SoftwareId::Windsurf => check_gui_app("Windsurf"),
+        SoftwareId::VisualStudioCode => check_gui_app("Visual Studio Code"),
         SoftwareId::ZedStable => check_gui_app("Zed"),
         SoftwareId::ZedPreview => check_gui_app("Zed Preview"),
         SoftwareId::Raycast => check_gui_app("Raycast"),
@@ -52,8 +55,23 @@ pub fn check_installed(id: SoftwareId) -> bool {
         SoftwareId::Bun => check_command("bun"),
         SoftwareId::Go => check_command("go"),
         SoftwareId::Flutter => check_command("flutter"),
+        SoftwareId::AndroidStudio => check_gui_app("Android Studio"),
         SoftwareId::ReactNativeCli => check_command("react-native"),
         SoftwareId::DioxusCli => check_command("dioxus"),
+        SoftwareId::YewCli => check_command("trunk"),
+        SoftwareId::LeptosCli => check_command("cargo-leptos"),
+        SoftwareId::ElectronForge => check_command("electron-forge"),
+        SoftwareId::DockerDesktop => check_gui_app("Docker"),
+        SoftwareId::Postman => check_gui_app("Postman"),
+        SoftwareId::Yaak => check_gui_app("Yaak"),
+        SoftwareId::Bruno => check_gui_app("Bruno"),
+        SoftwareId::CodexCli => check_command("codex"),
+        SoftwareId::ClaudeCli => check_command("claude"),
+        SoftwareId::ClaudeMultiCli => check_command("claude-multi"),
+        SoftwareId::KimiCli => check_command("kimi"),
+        SoftwareId::GeminiCli => check_command("gemini"),
+        SoftwareId::QwenCli => check_command("qwen"),
+        SoftwareId::OpencodeCli => check_command("opencode"),
     }
 }
 
@@ -67,6 +85,9 @@ pub fn install(id: SoftwareId) -> Result<(), Box<dyn Error>> {
         SoftwareId::Firefox => run_brew_cask("firefox"),
         SoftwareId::Chrome => run_brew_cask("google-chrome"),
         SoftwareId::JetBrainsToolbox => run_brew_cask("jetbrains-toolbox"),
+        SoftwareId::Cursor => run_brew_cask("cursor"),
+        SoftwareId::Windsurf => run_brew_cask("windsurf"),
+        SoftwareId::VisualStudioCode => run_brew_cask("visual-studio-code"),
         SoftwareId::ZedStable => run_brew_cask("zed"),
         SoftwareId::ZedPreview => run_brew_cask("zed@preview"),
         SoftwareId::Raycast => run_brew_cask("raycast"),
@@ -93,12 +114,43 @@ pub fn install(id: SoftwareId) -> Result<(), Box<dyn Error>> {
         SoftwareId::Bun => run_shell("curl -fsSL https://bun.sh/install | bash"),
         SoftwareId::Go => run_brew_pkg("go"),
         SoftwareId::Flutter => run_brew_cask("flutter"),
+        SoftwareId::AndroidStudio => run_brew_cask("android-studio"),
         SoftwareId::ReactNativeCli => run_shell("npm install -g react-native-cli")
             .or_else(|_| Err("npm (Node.js) is required for React Native CLI.".into())),
         SoftwareId::DioxusCli => {
             source_cargo_env();
             run_shell("cargo install dioxus-cli")
         }
+        SoftwareId::YewCli => {
+            source_cargo_env();
+            run_shell("rustup target add wasm32-unknown-unknown")?;
+            run_shell("cargo install trunk")
+        }
+        SoftwareId::LeptosCli => {
+            source_cargo_env();
+            run_shell("rustup target add wasm32-unknown-unknown")?;
+            run_shell("cargo install cargo-leptos")
+        }
+        SoftwareId::ElectronForge => run_shell("npm install -g @electron-forge/cli")
+            .or_else(|_| Err("npm (Node.js) is required for Electron Forge.".into())),
+        SoftwareId::DockerDesktop => run_brew_cask("docker"),
+        SoftwareId::Postman => run_brew_cask("postman"),
+        SoftwareId::Yaak => run_brew_cask("yaak"),
+        SoftwareId::Bruno => run_brew_cask("bruno"),
+        SoftwareId::CodexCli => run_shell("npm install -g codex-cli")
+            .or_else(|_| Err("npm (Node.js) is required for Codex CLI.".into())),
+        SoftwareId::ClaudeCli => run_shell("npm install -g claude-cli")
+            .or_else(|_| Err("npm (Node.js) is required for Claude CLI.".into())),
+        SoftwareId::ClaudeMultiCli => run_shell("npm install -g claude-multi-cli")
+            .or_else(|_| Err("npm (Node.js) is required for Claude Multi CLI.".into())),
+        SoftwareId::KimiCli => run_shell("npm install -g kimi-cli")
+            .or_else(|_| Err("npm (Node.js) is required for Kimi CLI.".into())),
+        SoftwareId::GeminiCli => run_shell("npm install -g gemini-cli")
+            .or_else(|_| Err("npm (Node.js) is required for Gemini CLI.".into())),
+        SoftwareId::QwenCli => run_shell("npm install -g qwen-cli")
+            .or_else(|_| Err("npm (Node.js) is required for Qwen CLI.".into())),
+        SoftwareId::OpencodeCli => run_shell("npm install -g opencode-cli")
+            .or_else(|_| Err("npm (Node.js) is required for Opencode CLI.".into())),
     }
 }
 
