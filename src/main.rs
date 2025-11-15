@@ -1,5 +1,6 @@
 mod catalog;
 mod cli;
+mod manager;
 mod templates;
 
 fn main() -> std::process::ExitCode {
