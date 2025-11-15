@@ -1,11 +1,15 @@
 use std::{
     error::Error,
     io,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
 use crossterm::{
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -28,12 +32,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     let tick_rate = Duration::from_millis(200);
     let mut last_tick = Instant::now();
 
+    let should_quit = Arc::new(AtomicBool::new(false));
+    {
+        let signal_flag = Arc::clone(&should_quit);
+        ctrlc::set_handler(move || {
+            signal_flag.store(true, Ordering::SeqCst);
+        })?;
+    }
+
     loop {
         terminal.draw(|frame| tui::draw(frame, &mut app))?;
 
         let timeout = tick_rate.saturating_sub(last_tick.elapsed());
         if event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
+                if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                    app.quit = true;
+                    continue;
+                }
                 match key.code {
                     KeyCode::Char('q') => app.quit = true,
                     KeyCode::Down | KeyCode::Char('j') => app.next(),
@@ -48,6 +64,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         if last_tick.elapsed() >= tick_rate {
             last_tick = Instant::now();
+        }
+
+        if should_quit.load(Ordering::SeqCst) {
+            app.quit = true;
         }
 
         if app.quit {
