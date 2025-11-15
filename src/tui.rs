@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::{
-    app::{App, Screen},
+    app::{App, E2EStepStatus, E2ETab, Screen},
     manager::StatusState,
 };
 
@@ -15,6 +15,7 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     match app.screen() {
         Screen::Menu => draw_menu(frame, app),
         Screen::Software => draw_software(frame, app),
+        Screen::E2ETest => draw_e2e_test(frame, app),
     }
 }
 
@@ -227,4 +228,130 @@ fn render_task_logs(app: &App) -> String {
         }
     }
     lines.join("\n")
+}
+
+fn draw_e2e_test(frame: &mut Frame<'_>, app: &mut App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(8),
+            Constraint::Length(3),
+        ])
+        .split(frame.size());
+
+    // Title
+    let title = Paragraph::new("Brew End-to-End Test")
+        .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+        .block(Block::default().borders(Borders::ALL));
+    frame.render_widget(title, chunks[0]);
+
+    // Software selection or tabs
+    if app.e2e_software().is_none() {
+        let selection_text = "Select software: 1=Neovim, 2=btop (Esc/m to return to menu)";
+        let selection = Paragraph::new(selection_text)
+            .style(Style::default().fg(Color::Yellow))
+            .block(Block::default().title("Selection").borders(Borders::ALL));
+        frame.render_widget(selection, chunks[1]);
+
+        let info = Paragraph::new("This test will run install → update → remove for the selected software.\nUse this to verify the complete lifecycle of package management.")
+            .block(Block::default().title("Info").borders(Borders::ALL));
+        frame.render_widget(info, chunks[2]);
+    } else {
+        // Draw horizontal tabs
+        let current_tab = app.e2e_tab();
+        let tabs_text = format!(
+            "{}  {}  {}  {}",
+            if current_tab == E2ETab::Install { "[ Install ]" } else { "  Install  " },
+            if current_tab == E2ETab::Update { "[ Update ]" } else { "  Update  " },
+            if current_tab == E2ETab::Remove { "[ Remove ]" } else { "  Remove  " },
+            if current_tab == E2ETab::Execute { "[ Execute ]" } else { "  Execute  " },
+        );
+        let tabs = Paragraph::new(tabs_text)
+            .style(Style::default().fg(Color::Cyan))
+            .block(Block::default().title("Steps").borders(Borders::ALL));
+        frame.render_widget(tabs, chunks[1]);
+
+        // Tab content
+        let content = match current_tab {
+            E2ETab::Install => {
+                let status_icon = match app.e2e_install_status() {
+                    E2EStepStatus::Pending => "⏸",
+                    E2EStepStatus::Running => "▶",
+                    E2EStepStatus::Done => "✓",
+                    E2EStepStatus::Skipped => "⊘",
+                };
+                format!(
+                    "{} Install Step\n\nThis step will install the selected software.\n\nStatus: {}",
+                    status_icon,
+                    match app.e2e_install_status() {
+                        E2EStepStatus::Pending => "Pending",
+                        E2EStepStatus::Running => "Running...",
+                        E2EStepStatus::Done => "Complete",
+                        E2EStepStatus::Skipped => "Skipped",
+                    }
+                )
+            }
+            E2ETab::Update => {
+                let status_icon = match app.e2e_update_status() {
+                    E2EStepStatus::Pending => "⏸",
+                    E2EStepStatus::Running => "▶",
+                    E2EStepStatus::Done => "✓",
+                    E2EStepStatus::Skipped => "⊘",
+                };
+                format!(
+                    "{} Update Step\n\nThis step will update the software to the latest version.\n\nStatus: {}",
+                    status_icon,
+                    match app.e2e_update_status() {
+                        E2EStepStatus::Pending => "Pending",
+                        E2EStepStatus::Running => "Running...",
+                        E2EStepStatus::Done => "Complete",
+                        E2EStepStatus::Skipped => "Skipped",
+                    }
+                )
+            }
+            E2ETab::Remove => {
+                let status_icon = match app.e2e_remove_status() {
+                    E2EStepStatus::Pending => "⏸",
+                    E2EStepStatus::Running => "▶",
+                    E2EStepStatus::Done => "✓",
+                    E2EStepStatus::Skipped => "⊘",
+                };
+                format!(
+                    "{} Remove Step\n\nThis step will uninstall the software.\n\nStatus: {}",
+                    status_icon,
+                    match app.e2e_remove_status() {
+                        E2EStepStatus::Pending => "Pending",
+                        E2EStepStatus::Running => "Running...",
+                        E2EStepStatus::Done => "Complete",
+                        E2EStepStatus::Skipped => "Skipped",
+                    }
+                )
+            }
+            E2ETab::Execute => {
+                if app.e2e_executing() {
+                    "Execution in progress...\n\nCheck the logs below for real-time progress.".to_string()
+                } else {
+                    "Ready to Execute\n\nPress Enter to start the E2E test.\n\nThe test will run:\n1. Install\n2. Update\n3. Remove\n\nLogs will appear below in real-time.".to_string()
+                }
+            }
+        };
+
+        let content_widget = Paragraph::new(content)
+            .block(Block::default().title("Step Details").borders(Borders::ALL));
+        frame.render_widget(content_widget, chunks[2]);
+    }
+
+    // Instructions
+    let instructions_text = if app.e2e_software().is_none() {
+        "1/2 select software • Esc/m menu • q quit".to_string()
+    } else if app.e2e_executing() {
+        "t toggle task view • Esc/m menu • q quit".to_string()
+    } else {
+        "←/→ or Tab navigate tabs • Enter execute (on Execute tab) • Esc/m menu • q quit".to_string()
+    };
+    let instructions = Paragraph::new(instructions_text)
+        .block(Block::default().title("Controls").borders(Borders::ALL));
+    frame.render_widget(instructions, chunks[3]);
 }
