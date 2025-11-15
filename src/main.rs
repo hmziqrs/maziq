@@ -76,12 +76,29 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
                 }
                 match key.code {
                     KeyCode::Char('q') => app.quit = true,
+                    KeyCode::Esc => app.enter_menu(),
+                    KeyCode::Char('m') => app.enter_menu(),
                     KeyCode::Down | KeyCode::Char('j') => app.next(),
                     KeyCode::Up | KeyCode::Char('k') => app.previous(),
-                    KeyCode::Enter | KeyCode::Char(' ') => app.install_selected(),
-                    KeyCode::Char('u') => app.update_selected(),
-                    KeyCode::Char('x') => app.uninstall_selected(),
-                    KeyCode::Char('a') => app.install_all_missing(),
+                    KeyCode::Enter | KeyCode::Char(' ') => match app.screen() {
+                        app::Screen::Menu => app.activate_menu(),
+                        app::Screen::Software => app.install_selected(),
+                    },
+                    KeyCode::Char('u') => {
+                        if matches!(app.screen(), app::Screen::Software) {
+                            app.update_selected();
+                        }
+                    }
+                    KeyCode::Char('x') => {
+                        if matches!(app.screen(), app::Screen::Software) {
+                            app.uninstall_selected();
+                        }
+                    }
+                    KeyCode::Char('a') => {
+                        if matches!(app.screen(), app::Screen::Software) {
+                            app.install_all_missing();
+                        }
+                    }
                     KeyCode::Char('r') => app.refresh_statuses_with_feedback(),
                     _ => {}
                 }

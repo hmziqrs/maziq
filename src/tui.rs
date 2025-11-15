@@ -6,9 +6,68 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, Paragraph},
 };
 
-use crate::{app::App, manager::StatusState};
+use crate::{
+    app::{App, Screen},
+    manager::StatusState,
+};
 
 pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
+    match app.screen() {
+        Screen::Menu => draw_menu(frame, app),
+        Screen::Software => draw_software(frame, app),
+    }
+}
+
+fn draw_menu(frame: &mut Frame<'_>, app: &mut App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
+        .split(frame.size());
+
+    let items: Vec<ListItem> = app
+        .menu_items()
+        .iter()
+        .map(|entry| {
+            ListItem::new(Line::from(vec![
+                Span::styled(
+                    entry.label,
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(" — "),
+                Span::styled(entry.description, Style::default().fg(Color::Gray)),
+            ]))
+        })
+        .collect();
+
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .title("MazIQ workflows")
+                .borders(Borders::ALL),
+        )
+        .highlight_symbol(">> ")
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightCyan)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD),
+        );
+    frame.render_stateful_widget(list, chunks[0], app.menu_state_mut());
+
+    let instructions = Paragraph::new(
+        "Enter selects • ↑/↓ or j/k navigate • r refresh statuses • Esc/m return to menu • q quit",
+    )
+    .block(
+        Block::default()
+            .title("Menu controls")
+            .borders(Borders::ALL),
+    );
+    frame.render_widget(instructions, chunks[1]);
+}
+
+fn draw_software(frame: &mut Frame<'_>, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(72), Constraint::Percentage(28)])
@@ -108,7 +167,7 @@ pub fn draw(frame: &mut Frame<'_>, app: &mut App) {
     frame.render_widget(log, lower[1]);
 
     let controls = Paragraph::new(
-        "Controls: ↑/↓ or j/k select • Enter=install • u=update • x=uninstall • a=install missing • r=refresh statuses • q=quit",
+        "Controls: ↑/↓ or j/k select • Enter install • u update • x uninstall • a install missing • r refresh • m/Esc menu • q quit",
     )
     .block(Block::default().title("Controls").borders(Borders::ALL));
     frame.render_widget(controls, lower[2]);
