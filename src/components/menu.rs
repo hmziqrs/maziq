@@ -244,63 +244,58 @@ impl MockComponent for MenuComponent {
 
 impl Component<AppMsg, tuirealm::NoUserEvent> for MenuComponent {
     fn on(&mut self, ev: Event<tuirealm::NoUserEvent>) -> Option<AppMsg> {
-        match ev {
-            Event::Keyboard(KeyEvent {
-                code: Key::Down,
-                ..
-            }) | Event::Keyboard(KeyEvent {
-                code: Key::Char('j'),
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                self.selected = (self.selected + 1) % MENU_ENTRIES.len();
-                Some(AppMsg::None)
-            }
-            Event::Keyboard(KeyEvent {
-                code: Key::Up,
-                ..
-            }) | Event::Keyboard(KeyEvent {
-                code: Key::Char('k'),
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                self.selected = if self.selected == 0 {
-                    MENU_ENTRIES.len() - 1
-                } else {
-                    self.selected - 1
-                };
-                Some(AppMsg::None)
-            }
-            Event::Keyboard(KeyEvent {
-                code: Key::Enter | Key::Char(' '),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::ActivateMenuItem(self.selected)),
-            Event::Keyboard(KeyEvent {
-                code: Key::Char(ch @ '1'..='6'),
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                let index = (ch as u8 - b'1') as usize;
-                if index < MENU_ENTRIES.len() {
-                    Some(AppMsg::ActivateMenuItem(index))
-                } else {
-                    Some(AppMsg::None)
+        if let Event::Keyboard(KeyEvent { code, modifiers }) = ev {
+            match code {
+                Key::Down => {
+                    self.selected = (self.selected + 1) % MENU_ENTRIES.len();
+                    return Some(AppMsg::None);
                 }
+                Key::Up => {
+                    self.selected = if self.selected == 0 {
+                        MENU_ENTRIES.len() - 1
+                    } else {
+                        self.selected - 1
+                    };
+                    return Some(AppMsg::None);
+                }
+                Key::Char('j') if modifiers == KeyModifiers::NONE => {
+                    self.selected = (self.selected + 1) % MENU_ENTRIES.len();
+                    return Some(AppMsg::None);
+                }
+                Key::Char('k') if modifiers == KeyModifiers::NONE => {
+                    self.selected = if self.selected == 0 {
+                        MENU_ENTRIES.len() - 1
+                    } else {
+                        self.selected - 1
+                    };
+                    return Some(AppMsg::None);
+                }
+                Key::Enter | Key::Char(' ') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::ActivateMenuItem(self.selected));
+                }
+                Key::Char(ch @ '1'..='6') if modifiers == KeyModifiers::NONE => {
+                    let index = (ch as u8 - b'1') as usize;
+                    return if index < MENU_ENTRIES.len() {
+                        Some(AppMsg::ActivateMenuItem(index))
+                    } else {
+                        Some(AppMsg::None)
+                    };
+                }
+                Key::Char('t') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::ToggleTaskView);
+                }
+                Key::Char('r') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::RefreshStatuses);
+                }
+                Key::Char('q') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::Quit);
+                }
+                Key::Esc | Key::Char('m') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::GoToMenu);
+                }
+                _ => {}
             }
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('t'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::ToggleTaskView),
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('r'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::RefreshStatuses),
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('q'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::Quit),
-            Event::Keyboard(KeyEvent {
-                code: Key::Esc | Key::Char('m'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::GoToMenu),
-            _ => None,
         }
+        None
     }
 }
