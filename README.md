@@ -267,16 +267,22 @@ The configurator helps set up development environment configurations:
 ```
 maziq/
 ├── src/
-│   ├── main.rs          # Entry point and TUI event loop
-│   ├── cli.rs           # CLI command definitions
-│   ├── app.rs           # Application state and TUI logic
+│   ├── main.rs          # Entry point and event loop
+│   ├── realm_app.rs     # tui-realm Application coordinator
+│   ├── messages.rs      # Message types (AppMsg, ComponentId)
+│   ├── components/      # UI Components
+│   │   ├── mod.rs
+│   │   ├── menu.rs      # Menu screen component
+│   │   ├── software.rs  # Software catalog component
+│   │   └── e2e_test.rs  # E2E test component
+│   ├── app.rs           # Business logic and state
 │   ├── catalog.rs       # Software catalog (69+ entries)
 │   ├── manager.rs       # Software adapter and execution engine
 │   ├── configurator.rs  # Configuration management
-│   ├── tui.rs           # Terminal UI rendering
 │   ├── templates.rs     # Template loading and parsing
 │   ├── history.rs       # Installation history tracking
-│   └── options.rs       # Global options (dry-run flag)
+│   ├── options.rs       # Global options (dry-run flag)
+│   └── cli.rs           # CLI command definitions
 ├── templates/
 │   └── hmziq.toml       # Default template
 ├── doc/
@@ -286,14 +292,48 @@ maziq/
 └── install_history.jsonl # Installation history log
 ```
 
+### Architecture
+
+MazIQ uses a modern **component-based TUI architecture** powered by tui-realm:
+
+- **Component Pattern**: Each screen (Menu, Software Catalog, E2E Test) is a self-contained component
+- **Message-Driven**: Event handling uses Elm-style message passing for type-safe communication
+- **Separation of Concerns**: UI components (view) are separate from business logic (app.rs)
+- **State Management**: Components manage their own state while syncing with shared business logic
+
+```
+┌─────────────────────────────────────┐
+│         RealmApp                    │
+│  (Application coordinator)          │
+├─────────────────────────────────────┤
+│                                     │
+│  ┌──────────┐  ┌──────────────┐   │
+│  │  Menu    │  │  Software    │   │
+│  │Component │  │  Component   │   │
+│  └──────────┘  └──────────────┘   │
+│                                     │
+│  ┌──────────────┐  ┌──────────┐   │
+│  │  E2E Test    │  │ Business │   │
+│  │  Component   │  │  Logic   │   │
+│  └──────────────┘  └──────────┘   │
+│                                     │
+└─────────────────────────────────────┘
+           │
+           ▼
+    Message System
+    (AppMsg enum)
+```
+
 ### Dependencies
 
 - **clap** - CLI argument parsing
-- **ratatui** - Terminal UI framework
-- **crossterm** - Terminal manipulation
+- **ratatui** - Terminal UI rendering
+- **tuirealm** - Component framework for TUI
+- **tui-realm-stdlib** - Standard component library
+- **crossterm** - Cross-platform terminal manipulation
 - **serde** - Serialization/deserialization
 - **serde_json** - JSON support
-- **toml** - TOML parsing
+- **toml** - TOML configuration parsing
 - **once_cell** - Lazy static initialization
 - **ctrlc** - Signal handling
 
@@ -361,7 +401,8 @@ This project is open source. Please see the LICENSE file for details.
 ## Acknowledgments
 
 Built with Rust 🦀 and powered by:
-- [ratatui](https://github.com/ratatui-org/ratatui) for the TUI
+- [tui-realm](https://github.com/veeso/tui-realm) for component-based TUI architecture
+- [ratatui](https://github.com/ratatui-org/ratatui) for terminal UI rendering
 - [clap](https://github.com/clap-rs/clap) for CLI parsing
 - The Rust community for excellent tooling
 

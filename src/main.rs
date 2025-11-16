@@ -5,16 +5,15 @@ use std::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::{Duration, Instant},
 };
 
 use clap::Parser;
 use crossterm::{
-    event::{self, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{Terminal, backend::CrosstermBackend};
+use ratatui::Terminal;
+use tuirealm::event::{Event, Key, KeyEvent, KeyModifiers};
 
 mod app;
 mod catalog;
@@ -24,7 +23,9 @@ mod history;
 mod manager;
 mod options;
 mod templates;
-mod tui;
+mod messages;
+mod components;
+mod realm_app;
 
 fn main() -> std::process::ExitCode {
     // Parse CLI first; if no subcommand, fall back to the interactive TUI.
@@ -56,12 +57,11 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
+    let backend = ratatui::backend::CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
 
-    let mut app = app::App::new();
-    let tick_rate = Duration::from_millis(200);
-    let mut last_tick = Instant::now();
+    let mut app = realm_app::RealmApp::new();
 
     let should_quit = Arc::new(AtomicBool::new(false));
     {
@@ -72,93 +72,41 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
     }
 
     loop {
-        app.poll_task_events();
-        terminal.draw(|frame| tui::draw(frame, &mut app))?;
+        // Tick the application
+        app.tick();
 
-        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-        if event::poll(timeout)? {
-            if let Event::Key(key) = event::read()? {
-                if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
-                    app.quit = true;
-                    continue;
+        // Render the view
+        app.view(&mut terminal);
+
+        // Poll for events from crossterm
+        if crossterm::event::poll(std::time::Duration::from_millis(10))? {
+            let crossterm_event = crossterm::event::read()?;
+
+            // Convert crossterm event to tuirealm event
+            let event = match crossterm_event {
+                crossterm::event::Event::Key(key) => {
+                    // Handle Ctrl+C
+                    if key.code == crossterm::event::KeyCode::Char('c')
+                        && key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL)
+                    {
+                        break;
+                    }
+
+                    // Convert crossterm KeyEvent to tuirealm Event
+                    Some(convert_key_event(key))
                 }
-                match key.code {
-                    KeyCode::Char('q') => app.quit = true,
-                    KeyCode::Esc => app.enter_menu(),
-                    KeyCode::Char('m') => app.enter_menu(),
-                    KeyCode::Char(digit @ '1'..='9') => {
-                        if matches!(app.screen(), app::Screen::Menu) {
-                            if let Some(index) = (digit as u8).checked_sub(b'1') {
-                                app.activate_menu_index(index as usize);
-                            }
-                        } else if matches!(app.screen(), app::Screen::E2ETest) && app.e2e_software().is_none() {
-                            match digit {
-                                '1' => app.select_e2e_software(crate::catalog::SoftwareId::Neovim),
-                                '2' => app.select_e2e_software(crate::catalog::SoftwareId::Btop),
-                                _ => {}
-                            }
-                        }
-                    }
-                    KeyCode::Down | KeyCode::Char('j') => app.next(),
-                    KeyCode::Up | KeyCode::Char('k') => app.previous(),
-                    KeyCode::Enter => match app.screen() {
-                        app::Screen::Menu => app.activate_menu(),
-                        app::Screen::Software => app.install_selected(),
-                        app::Screen::E2ETest => {
-                            if app.e2e_software().is_some() && app.e2e_tab() == app::E2ETab::Execute && !app.e2e_executing() {
-                                app.execute_e2e();
-                            }
-                        }
-                    },
-                    KeyCode::Char(' ') => match app.screen() {
-                        app::Screen::Menu => app.activate_menu(),
-                        app::Screen::Software => app.install_selected(),
-                        app::Screen::E2ETest => {
-                            if app.e2e_software().is_some() && !app.e2e_executing() {
-                                app.toggle_e2e_step();
-                            }
-                        }
-                    },
-                    KeyCode::Char('u') => {
-                        if matches!(app.screen(), app::Screen::Software) {
-                            app.update_selected();
-                        }
-                    }
-                    KeyCode::Char('x') => {
-                        if matches!(app.screen(), app::Screen::Software) {
-                            app.uninstall_selected();
-                        }
-                    }
-                    KeyCode::Char('a') => {
-                        if matches!(app.screen(), app::Screen::Software) {
-                            app.install_all_missing();
-                        }
-                    }
-                    KeyCode::Char('r') => app.refresh_statuses_with_feedback(),
-                    KeyCode::Char('t') => app.toggle_task_view(),
-                    KeyCode::Tab | KeyCode::Right | KeyCode::Left => {
-                        if matches!(app.screen(), app::Screen::E2ETest) && app.e2e_software().is_some() {
-                            if matches!(key.code, KeyCode::Left) {
-                                app.previous();
-                            } else {
-                                app.next();
-                            }
-                        }
-                    }
-                    _ => {}
+                _ => None,
+            };
+
+            if let Some(ev) = event {
+                if let Some(msg) = app.handle_event(ev) {
+                    app.update(msg);
                 }
             }
         }
 
-        if last_tick.elapsed() >= tick_rate {
-            last_tick = Instant::now();
-        }
-
-        if should_quit.load(Ordering::SeqCst) {
-            app.quit = true;
-        }
-
-        if app.quit {
+        // Check quit conditions
+        if should_quit.load(Ordering::SeqCst) || app.should_quit() {
             break;
         }
     }
@@ -167,4 +115,43 @@ fn run_tui() -> Result<(), Box<dyn Error>> {
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
     Ok(())
+}
+
+fn convert_key_event(key: crossterm::event::KeyEvent) -> Event<tuirealm::NoUserEvent> {
+    let key_code = match key.code {
+        crossterm::event::KeyCode::Backspace => Key::Backspace,
+        crossterm::event::KeyCode::Enter => Key::Enter,
+        crossterm::event::KeyCode::Left => Key::Left,
+        crossterm::event::KeyCode::Right => Key::Right,
+        crossterm::event::KeyCode::Up => Key::Up,
+        crossterm::event::KeyCode::Down => Key::Down,
+        crossterm::event::KeyCode::Home => Key::Home,
+        crossterm::event::KeyCode::End => Key::End,
+        crossterm::event::KeyCode::PageUp => Key::PageUp,
+        crossterm::event::KeyCode::PageDown => Key::PageDown,
+        crossterm::event::KeyCode::Tab => Key::Tab,
+        crossterm::event::KeyCode::BackTab => Key::BackTab,
+        crossterm::event::KeyCode::Delete => Key::Delete,
+        crossterm::event::KeyCode::Insert => Key::Insert,
+        crossterm::event::KeyCode::F(n) => Key::Function(n),
+        crossterm::event::KeyCode::Char(c) => Key::Char(c),
+        crossterm::event::KeyCode::Null => Key::Null,
+        crossterm::event::KeyCode::Esc => Key::Esc,
+        _ => Key::Null,
+    };
+
+    let modifiers = if key.modifiers.contains(crossterm::event::KeyModifiers::SHIFT) {
+        KeyModifiers::SHIFT
+    } else if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
+        KeyModifiers::CONTROL
+    } else if key.modifiers.contains(crossterm::event::KeyModifiers::ALT) {
+        KeyModifiers::ALT
+    } else {
+        KeyModifiers::NONE
+    };
+
+    Event::Keyboard(KeyEvent {
+        code: key_code,
+        modifiers,
+    })
 }

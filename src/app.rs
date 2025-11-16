@@ -461,7 +461,7 @@ impl App {
         }
     }
 
-    fn run_action(&mut self, action: ActionKind, ids: Vec<SoftwareId>) {
+    pub fn run_action(&mut self, action: ActionKind, ids: Vec<SoftwareId>) {
         if ids.is_empty() {
             return;
         }
