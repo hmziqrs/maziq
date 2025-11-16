@@ -246,14 +246,22 @@ impl Component<AppMsg, tuirealm::NoUserEvent> for SoftwareComponent {
                 code: Key::Down | Key::Char('j'),
                 modifiers: KeyModifiers::NONE,
             }) => {
-                self.perform(Cmd::Move(tuirealm::command::Direction::Down));
+                if !self.handles.is_empty() {
+                    self.selected = (self.selected + 1) % self.handles.len();
+                }
                 Some(AppMsg::None)
             }
             Event::Keyboard(KeyEvent {
                 code: Key::Up | Key::Char('k'),
                 modifiers: KeyModifiers::NONE,
             }) => {
-                self.perform(Cmd::Move(tuirealm::command::Direction::Up));
+                if !self.handles.is_empty() {
+                    self.selected = if self.selected == 0 {
+                        self.handles.len() - 1
+                    } else {
+                        self.selected - 1
+                    };
+                }
                 Some(AppMsg::None)
             }
             Event::Keyboard(KeyEvent {
