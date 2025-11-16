@@ -246,14 +246,20 @@ impl Component<AppMsg, tuirealm::NoUserEvent> for MenuComponent {
     fn on(&mut self, ev: Event<tuirealm::NoUserEvent>) -> Option<AppMsg> {
         match ev {
             Event::Keyboard(KeyEvent {
-                code: Key::Down | Key::Char('j'),
+                code: Key::Down,
+                ..
+            }) | Event::Keyboard(KeyEvent {
+                code: Key::Char('j'),
                 modifiers: KeyModifiers::NONE,
             }) => {
                 self.selected = (self.selected + 1) % MENU_ENTRIES.len();
                 Some(AppMsg::None)
             }
             Event::Keyboard(KeyEvent {
-                code: Key::Up | Key::Char('k'),
+                code: Key::Up,
+                ..
+            }) | Event::Keyboard(KeyEvent {
+                code: Key::Char('k'),
                 modifiers: KeyModifiers::NONE,
             }) => {
                 self.selected = if self.selected == 0 {
