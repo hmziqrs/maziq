@@ -59,11 +59,26 @@ pub struct MenuComponent {
     log_lines: Vec<String>,
     show_tasks: bool,
     task_lines: Vec<String>,
-    list: StdlibList,
 }
 
 impl Default for MenuComponent {
     fn default() -> Self {
+        Self {
+            selected: 0,
+            message: "Select a workflow from the menu (Onboard/Update/Config/Catalog).".into(),
+            log_lines: Vec::new(),
+            show_tasks: true,
+            task_lines: Vec::new(),
+        }
+    }
+}
+
+impl MenuComponent {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn build_list(&self) -> StdlibList {
         // Build menu rows
         let mut table_builder = TableBuilder::default();
         for entry in MENU_ENTRIES {
@@ -74,9 +89,9 @@ impl Default for MenuComponent {
                 .add_row();
         }
 
-        let list = StdlibList::default()
+        StdlibList::default()
             .rows(table_builder.build())
-            .selected_line(0)
+            .selected_line(self.selected)
             .scroll(true)
             .rewind(true)
             .highlighted_str(">> ")
@@ -86,22 +101,7 @@ impl Default for MenuComponent {
                     .modifiers(BorderType::Rounded)
                     .color(PropColor::White),
             )
-            .title("MazIQ workflows", Alignment::Left);
-
-        Self {
-            selected: 0,
-            message: "Select a workflow from the menu (Onboard/Update/Config/Catalog).".into(),
-            log_lines: Vec::new(),
-            show_tasks: true,
-            task_lines: Vec::new(),
-            list,
-        }
-    }
-}
-
-impl MenuComponent {
-    pub fn new() -> Self {
-        Self::default()
+            .title("MazIQ workflows", Alignment::Left)
     }
 
     pub fn set_message(&mut self, message: String) {
@@ -129,11 +129,8 @@ impl MockComponent for MenuComponent {
             .split(area);
 
         // Render menu list using stdlib List
-        self.list.attr(
-            tuirealm::Attribute::Value,
-            tuirealm::AttrValue::Number(self.selected as isize),
-        );
-        self.list.view(frame, chunks[0]);
+        let mut list = self.build_list();
+        list.view(frame, chunks[0]);
 
         // Render lower section with status, log, and controls
         let lower = Layout::default()
