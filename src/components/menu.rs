@@ -1,14 +1,14 @@
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Paragraph},
 };
+use tui_realm_stdlib::{List as StdlibList, Paragraph as StdlibParagraph};
 use tuirealm::{
     Component, Event, MockComponent, State, StateValue,
     command::{Cmd, CmdResult},
     event::{Key, KeyEvent, KeyModifiers},
+    props::{Alignment, BorderType, Borders as PropBorders, Color as PropColor, TableBuilder, TextSpan},
 };
 
 use crate::messages::AppMsg;
@@ -59,16 +59,42 @@ pub struct MenuComponent {
     log_lines: Vec<String>,
     show_tasks: bool,
     task_lines: Vec<String>,
+    list: StdlibList,
 }
 
 impl Default for MenuComponent {
     fn default() -> Self {
+        // Build menu rows
+        let mut table_builder = TableBuilder::default();
+        for entry in MENU_ENTRIES {
+            table_builder
+                .add_col(TextSpan::from(entry.label).fg(PropColor::Cyan).bold())
+                .add_col(TextSpan::from(" — "))
+                .add_col(TextSpan::from(entry.description).fg(PropColor::DarkGray))
+                .add_row();
+        }
+
+        let list = StdlibList::default()
+            .rows(table_builder.build())
+            .selected_line(0)
+            .scroll(true)
+            .rewind(true)
+            .highlighted_str(">> ")
+            .highlighted_color(PropColor::LightCyan)
+            .borders(
+                PropBorders::default()
+                    .modifiers(BorderType::Rounded)
+                    .color(PropColor::White),
+            )
+            .title("MazIQ workflows", Alignment::Left);
+
         Self {
             selected: 0,
             message: "Select a workflow from the menu (Onboard/Update/Config/Catalog).".into(),
             log_lines: Vec::new(),
             show_tasks: true,
             task_lines: Vec::new(),
+            list,
         }
     }
 }
@@ -102,41 +128,12 @@ impl MockComponent for MenuComponent {
             .constraints([Constraint::Percentage(72), Constraint::Percentage(28)])
             .split(area);
 
-        // Render menu list
-        let items: Vec<ListItem> = MENU_ENTRIES
-            .iter()
-            .map(|entry| {
-                ListItem::new(Line::from(vec![
-                    Span::styled(
-                        entry.label,
-                        Style::default()
-                            .fg(Color::Cyan)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                    Span::raw(" — "),
-                    Span::styled(entry.description, Style::default().fg(Color::Gray)),
-                ]))
-            })
-            .collect();
-
-        let mut list_state = ratatui::widgets::ListState::default();
-        list_state.select(Some(self.selected));
-
-        let list = List::new(items)
-            .block(
-                Block::default()
-                    .title("MazIQ workflows")
-                    .borders(Borders::ALL),
-            )
-            .highlight_symbol(">> ")
-            .highlight_style(
-                Style::default()
-                    .bg(Color::LightCyan)
-                    .fg(Color::Black)
-                    .add_modifier(Modifier::BOLD),
-            );
-
-        frame.render_stateful_widget(list, chunks[0], &mut list_state);
+        // Render menu list using stdlib List
+        self.list.attr(
+            tuirealm::Attribute::Value,
+            tuirealm::AttrValue::Number(self.selected as isize),
+        );
+        self.list.view(frame, chunks[0]);
 
         // Render lower section with status, log, and controls
         let lower = Layout::default()
@@ -148,30 +145,45 @@ impl MockComponent for MenuComponent {
             ])
             .split(chunks[1]);
 
-        // Status message
-        let message = Paragraph::new(self.message.as_str())
-            .block(Block::default().title("Status").borders(Borders::ALL));
-        frame.render_widget(message, lower[0]);
+        // Status message using stdlib Paragraph
+        let status_text = vec![TextSpan::from(&self.message)];
+        let mut status = StdlibParagraph::default()
+            .foreground(PropColor::White)
+            .borders(
+                PropBorders::default()
+                    .modifiers(BorderType::Rounded)
+                    .color(PropColor::White),
+            )
+            .title("Status", Alignment::Left)
+            .text(&status_text);
+        status.view(frame, lower[0]);
 
-        // Log panel
-        let log_text = if self.show_tasks {
+        // Log panel using stdlib Paragraph
+        let log_text: Vec<TextSpan> = if self.show_tasks {
             if self.task_lines.is_empty() {
-                "No tasks queued.".to_string()
+                vec![TextSpan::from("No tasks queued.")]
             } else {
-                self.task_lines.join("\n")
+                self.task_lines.iter().map(|line| TextSpan::from(line)).collect()
             }
         } else if self.log_lines.is_empty() {
-            "No actions executed yet.".to_string()
+            vec![TextSpan::from("No actions executed yet.")]
         } else {
-            self.log_lines.join("\n")
+            self.log_lines.iter().map(|line| TextSpan::from(line)).collect()
         };
 
         let log_title = if self.show_tasks { "Tasks" } else { "Action log" };
-        let log = Paragraph::new(log_text)
-            .block(Block::default().title(log_title).borders(Borders::ALL));
-        frame.render_widget(log, lower[1]);
+        let mut log = StdlibParagraph::default()
+            .foreground(PropColor::White)
+            .borders(
+                PropBorders::default()
+                    .modifiers(BorderType::Rounded)
+                    .color(PropColor::White),
+            )
+            .title(log_title, Alignment::Left)
+            .text(&log_text);
+        log.view(frame, lower[1]);
 
-        // Controls
+        // Controls - still using ratatui Paragraph for instructions
         let dry_run_notice = if crate::options::global_dry_run() {
             " (dry-run: actions previewed only)"
         } else {

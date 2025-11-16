@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Paragraph},
 };
+use tui_realm_stdlib::{Table as StdlibTable, Paragraph as StdlibParagraph};
 use tuirealm::{
     Component, Event, MockComponent, State, StateValue,
     command::{Cmd, CmdResult},
     event::{Key, KeyEvent, KeyModifiers},
+    props::{Alignment, BorderType, Borders as PropBorders, Color as PropColor, TableBuilder, TextSpan},
 };
 
 use crate::{
@@ -27,10 +27,12 @@ pub struct SoftwareComponent {
     log_lines: Vec<String>,
     show_tasks: bool,
     task_lines: Vec<String>,
+    table: StdlibTable,
 }
 
 impl SoftwareComponent {
     pub fn new(handles: Vec<SoftwareHandle>) -> Self {
+        let table = Self::build_table(&handles, &HashMap::new());
         Self {
             handles,
             statuses: HashMap::new(),
@@ -39,11 +41,59 @@ impl SoftwareComponent {
             log_lines: Vec::new(),
             show_tasks: true,
             task_lines: Vec::new(),
+            table,
         }
+    }
+
+    fn build_table(handles: &[SoftwareHandle], statuses: &HashMap<SoftwareId, StatusState>) -> StdlibTable {
+        let mut table_builder = TableBuilder::default();
+
+        for handle in handles {
+            let state = statuses
+                .get(&handle.id)
+                .cloned()
+                .unwrap_or(StatusState::NotInstalled);
+
+            let (status_icon, status_text, status_color) = match state {
+                StatusState::Installed { ref version } => {
+                    let text = version.as_deref().unwrap_or("Installed");
+                    ("✅", text, PropColor::Green)
+                }
+                StatusState::NotInstalled => ("❌", "Missing", PropColor::Red),
+                StatusState::ManualCheck(ref note) => ("⚠", note.as_str(), PropColor::Yellow),
+                StatusState::Unknown(ref note) => ("??", note.as_str(), PropColor::Magenta),
+            };
+
+            table_builder
+                .add_col(TextSpan::from(handle.category).fg(PropColor::Yellow).bold())
+                .add_col(TextSpan::from(handle.id.name()).fg(PropColor::White).bold())
+                .add_col(TextSpan::from(status_icon).fg(status_color))
+                .add_col(TextSpan::from(status_text).fg(status_color))
+                .add_col(TextSpan::from(handle.id.summary()).fg(PropColor::DarkGray))
+                .add_row();
+        }
+
+        StdlibTable::default()
+            .borders(
+                PropBorders::default()
+                    .modifiers(BorderType::Rounded)
+                    .color(PropColor::White),
+            )
+            .title("macOS Provisioning Catalog", Alignment::Left)
+            .scroll(true)
+            .rewind(true)
+            .highlighted_color(PropColor::LightBlue)
+            .highlighted_str(">> ")
+            .headers(&["Category", "Name", "", "Status", "Description"])
+            .column_spacing(2)
+            .widths(&[15, 20, 3, 15, 50])
+            .table(table_builder.build())
+            .selected_line(0)
     }
 
     pub fn set_statuses(&mut self, statuses: HashMap<SoftwareId, StatusState>) {
         self.statuses = statuses;
+        self.table = Self::build_table(&self.handles, &self.statuses);
     }
 
     pub fn set_message(&mut self, message: String) {
@@ -81,80 +131,12 @@ impl MockComponent for SoftwareComponent {
             .constraints([Constraint::Percentage(72), Constraint::Percentage(28)])
             .split(area);
 
-        // Render software list
-        let items: Vec<ListItem> = self
-            .handles
-            .iter()
-            .map(|handle| {
-                let state = self.status_for(handle.id);
-                let (status_text, detail_span, status_color) = match state {
-                    StatusState::Installed { version } => {
-                        let text = version.unwrap_or_else(|| "Installed".into());
-                        (format!("✅ {text}"), None, Color::Green)
-                    }
-                    StatusState::NotInstalled => ("❌ Missing".into(), None, Color::Red),
-                    StatusState::ManualCheck(note) => (
-                        "⚠ Manual".into(),
-                        Some(Span::styled(
-                            format!(" ({note})"),
-                            Style::default().fg(Color::Yellow),
-                        )),
-                        Color::Yellow,
-                    ),
-                    StatusState::Unknown(note) => (
-                        "?? Unknown".into(),
-                        Some(Span::styled(
-                            format!(" ({note})"),
-                            Style::default().fg(Color::LightRed),
-                        )),
-                        Color::Magenta,
-                    ),
-                };
-                let status_span = Span::styled(status_text, Style::default().fg(status_color));
-
-                let mut line = vec![
-                    Span::styled(
-                        format!("[{}] ", handle.category),
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(
-                        handle.id.name(),
-                        Style::default()
-                            .fg(Color::White)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                    Span::raw(" - "),
-                    status_span,
-                    Span::raw(" • "),
-                    Span::styled(handle.id.summary(), Style::default().fg(Color::Gray)),
-                ];
-                if let Some(detail) = detail_span {
-                    line.push(detail);
-                }
-                ListItem::new(Line::from(line))
-            })
-            .collect();
-
-        let mut list_state = ratatui::widgets::ListState::default();
-        list_state.select(Some(self.selected));
-
-        let list = List::new(items)
-            .block(
-                Block::default()
-                    .title("macOS Provisioning Catalog")
-                    .borders(Borders::ALL),
-            )
-            .highlight_symbol(">> ")
-            .highlight_style(
-                Style::default()
-                    .bg(Color::LightBlue)
-                    .fg(Color::Black)
-                    .add_modifier(Modifier::BOLD),
-            );
-
-        frame.render_stateful_widget(list, chunks[0], &mut list_state);
+        // Render software table using stdlib Table
+        self.table.attr(
+            tuirealm::Attribute::Value,
+            tuirealm::AttrValue::Number(self.selected as isize),
+        );
+        self.table.view(frame, chunks[0]);
 
         // Render lower section
         let lower = Layout::default()
@@ -166,30 +148,45 @@ impl MockComponent for SoftwareComponent {
             ])
             .split(chunks[1]);
 
-        // Status message
-        let message = Paragraph::new(self.message.as_str())
-            .block(Block::default().title("Status").borders(Borders::ALL));
-        frame.render_widget(message, lower[0]);
+        // Status message using stdlib Paragraph
+        let status_text = vec![TextSpan::from(&self.message)];
+        let mut status = StdlibParagraph::default()
+            .foreground(PropColor::White)
+            .borders(
+                PropBorders::default()
+                    .modifiers(BorderType::Rounded)
+                    .color(PropColor::White),
+            )
+            .title("Status", Alignment::Left)
+            .text(&status_text);
+        status.view(frame, lower[0]);
 
-        // Log panel
-        let log_text = if self.show_tasks {
+        // Log panel using stdlib Paragraph
+        let log_text: Vec<TextSpan> = if self.show_tasks {
             if self.task_lines.is_empty() {
-                "No tasks queued.".to_string()
+                vec![TextSpan::from("No tasks queued.")]
             } else {
-                self.task_lines.join("\n")
+                self.task_lines.iter().map(|line| TextSpan::from(line)).collect()
             }
         } else if self.log_lines.is_empty() {
-            "No actions executed yet.".to_string()
+            vec![TextSpan::from("No actions executed yet.")]
         } else {
-            self.log_lines.join("\n")
+            self.log_lines.iter().map(|line| TextSpan::from(line)).collect()
         };
 
         let log_title = if self.show_tasks { "Tasks" } else { "Action log" };
-        let log = Paragraph::new(log_text)
-            .block(Block::default().title(log_title).borders(Borders::ALL));
-        frame.render_widget(log, lower[1]);
+        let mut log = StdlibParagraph::default()
+            .foreground(PropColor::White)
+            .borders(
+                PropBorders::default()
+                    .modifiers(BorderType::Rounded)
+                    .color(PropColor::White),
+            )
+            .title(log_title, Alignment::Left)
+            .text(&log_text);
+        log.view(frame, lower[1]);
 
-        // Controls
+        // Controls - still using ratatui Paragraph for instructions
         let controls = Paragraph::new(
             "Controls: ↑/↓ or j/k select • Enter install • u update • x uninstall • a install missing • r refresh • t toggle log • m/Esc menu • q quit",
         )
