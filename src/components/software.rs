@@ -241,86 +241,79 @@ impl MockComponent for SoftwareComponent {
 
 impl Component<AppMsg, tuirealm::NoUserEvent> for SoftwareComponent {
     fn on(&mut self, ev: Event<tuirealm::NoUserEvent>) -> Option<AppMsg> {
-        match ev {
-            Event::Keyboard(KeyEvent {
-                code: Key::Down,
-                ..
-            }) | Event::Keyboard(KeyEvent {
-                code: Key::Char('j'),
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if !self.handles.is_empty() {
-                    self.selected = (self.selected + 1) % self.handles.len();
+        if let Event::Keyboard(KeyEvent { code, modifiers }) = ev {
+            match code {
+                Key::Down => {
+                    if !self.handles.is_empty() {
+                        self.selected = (self.selected + 1) % self.handles.len();
+                    }
+                    return Some(AppMsg::None);
                 }
-                Some(AppMsg::None)
-            }
-            Event::Keyboard(KeyEvent {
-                code: Key::Up,
-                ..
-            }) | Event::Keyboard(KeyEvent {
-                code: Key::Char('k'),
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if !self.handles.is_empty() {
-                    self.selected = if self.selected == 0 {
-                        self.handles.len() - 1
+                Key::Up => {
+                    if !self.handles.is_empty() {
+                        self.selected = if self.selected == 0 {
+                            self.handles.len() - 1
+                        } else {
+                            self.selected - 1
+                        };
+                    }
+                    return Some(AppMsg::None);
+                }
+                Key::Char('j') if modifiers == KeyModifiers::NONE => {
+                    if !self.handles.is_empty() {
+                        self.selected = (self.selected + 1) % self.handles.len();
+                    }
+                    return Some(AppMsg::None);
+                }
+                Key::Char('k') if modifiers == KeyModifiers::NONE => {
+                    if !self.handles.is_empty() {
+                        self.selected = if self.selected == 0 {
+                            self.handles.len() - 1
+                        } else {
+                            self.selected - 1
+                        };
+                    }
+                    return Some(AppMsg::None);
+                }
+                Key::Enter if modifiers == KeyModifiers::NONE => {
+                    return if let Some(id) = self.selected_software() {
+                        Some(AppMsg::InstallSoftware(id))
                     } else {
-                        self.selected - 1
+                        Some(AppMsg::None)
                     };
                 }
-                Some(AppMsg::None)
-            }
-            Event::Keyboard(KeyEvent {
-                code: Key::Enter,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if let Some(id) = self.selected_software() {
-                    Some(AppMsg::InstallSoftware(id))
-                } else {
-                    Some(AppMsg::None)
+                Key::Char('u') if modifiers == KeyModifiers::NONE => {
+                    return if let Some(id) = self.selected_software() {
+                        Some(AppMsg::UpdateSoftware(id))
+                    } else {
+                        Some(AppMsg::None)
+                    };
                 }
-            }
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('u'),
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if let Some(id) = self.selected_software() {
-                    Some(AppMsg::UpdateSoftware(id))
-                } else {
-                    Some(AppMsg::None)
+                Key::Char('x') if modifiers == KeyModifiers::NONE => {
+                    return if let Some(id) = self.selected_software() {
+                        Some(AppMsg::UninstallSoftware(id))
+                    } else {
+                        Some(AppMsg::None)
+                    };
                 }
-            }
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('x'),
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if let Some(id) = self.selected_software() {
-                    Some(AppMsg::UninstallSoftware(id))
-                } else {
-                    Some(AppMsg::None)
+                Key::Char('a') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::InstallAllMissing);
                 }
+                Key::Char('r') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::RefreshStatuses);
+                }
+                Key::Char('t') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::ToggleTaskView);
+                }
+                Key::Char('q') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::Quit);
+                }
+                Key::Esc | Key::Char('m') if modifiers == KeyModifiers::NONE => {
+                    return Some(AppMsg::GoToMenu);
+                }
+                _ => {}
             }
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('a'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::InstallAllMissing),
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('r'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::RefreshStatuses),
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('t'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::ToggleTaskView),
-            Event::Keyboard(KeyEvent {
-                code: Key::Char('q'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::Quit),
-            Event::Keyboard(KeyEvent {
-                code: Key::Esc | Key::Char('m'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(AppMsg::GoToMenu),
-            _ => None,
         }
+        None
     }
 }
