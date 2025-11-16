@@ -27,12 +27,10 @@ pub struct SoftwareComponent {
     log_lines: Vec<String>,
     show_tasks: bool,
     task_lines: Vec<String>,
-    table: StdlibTable,
 }
 
 impl SoftwareComponent {
     pub fn new(handles: Vec<SoftwareHandle>) -> Self {
-        let table = Self::build_table(&handles, &HashMap::new());
         Self {
             handles,
             statuses: HashMap::new(),
@@ -41,15 +39,14 @@ impl SoftwareComponent {
             log_lines: Vec::new(),
             show_tasks: true,
             task_lines: Vec::new(),
-            table,
         }
     }
 
-    fn build_table(handles: &[SoftwareHandle], statuses: &HashMap<SoftwareId, StatusState>) -> StdlibTable {
+    fn build_table(&self) -> StdlibTable {
         let mut table_builder = TableBuilder::default();
 
-        for handle in handles {
-            let state = statuses
+        for handle in &self.handles {
+            let state = self.statuses
                 .get(&handle.id)
                 .cloned()
                 .unwrap_or(StatusState::NotInstalled);
@@ -88,12 +85,11 @@ impl SoftwareComponent {
             .column_spacing(2)
             .widths(&[15, 20, 3, 15, 50])
             .table(table_builder.build())
-            .selected_line(0)
+            .selected_line(self.selected)
     }
 
     pub fn set_statuses(&mut self, statuses: HashMap<SoftwareId, StatusState>) {
         self.statuses = statuses;
-        self.table = Self::build_table(&self.handles, &self.statuses);
     }
 
     pub fn set_message(&mut self, message: String) {
@@ -132,11 +128,8 @@ impl MockComponent for SoftwareComponent {
             .split(area);
 
         // Render software table using stdlib Table
-        self.table.attr(
-            tuirealm::Attribute::Value,
-            tuirealm::AttrValue::Number(self.selected as isize),
-        );
-        self.table.view(frame, chunks[0]);
+        let mut table = self.build_table();
+        table.view(frame, chunks[0]);
 
         // Render lower section
         let lower = Layout::default()
