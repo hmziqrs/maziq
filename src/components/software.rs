@@ -243,7 +243,10 @@ impl Component<AppMsg, tuirealm::NoUserEvent> for SoftwareComponent {
     fn on(&mut self, ev: Event<tuirealm::NoUserEvent>) -> Option<AppMsg> {
         match ev {
             Event::Keyboard(KeyEvent {
-                code: Key::Down | Key::Char('j'),
+                code: Key::Down,
+                ..
+            }) | Event::Keyboard(KeyEvent {
+                code: Key::Char('j'),
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if !self.handles.is_empty() {
@@ -252,7 +255,10 @@ impl Component<AppMsg, tuirealm::NoUserEvent> for SoftwareComponent {
                 Some(AppMsg::None)
             }
             Event::Keyboard(KeyEvent {
-                code: Key::Up | Key::Char('k'),
+                code: Key::Up,
+                ..
+            }) | Event::Keyboard(KeyEvent {
+                code: Key::Char('k'),
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if !self.handles.is_empty() {
