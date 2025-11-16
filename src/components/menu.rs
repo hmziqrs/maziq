@@ -249,14 +249,18 @@ impl Component<AppMsg, tuirealm::NoUserEvent> for MenuComponent {
                 code: Key::Down | Key::Char('j'),
                 modifiers: KeyModifiers::NONE,
             }) => {
-                self.perform(Cmd::Move(tuirealm::command::Direction::Down));
+                self.selected = (self.selected + 1) % MENU_ENTRIES.len();
                 Some(AppMsg::None)
             }
             Event::Keyboard(KeyEvent {
                 code: Key::Up | Key::Char('k'),
                 modifiers: KeyModifiers::NONE,
             }) => {
-                self.perform(Cmd::Move(tuirealm::command::Direction::Up));
+                self.selected = if self.selected == 0 {
+                    MENU_ENTRIES.len() - 1
+                } else {
+                    self.selected - 1
+                };
                 Some(AppMsg::None)
             }
             Event::Keyboard(KeyEvent {
